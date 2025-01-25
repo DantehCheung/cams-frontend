@@ -1,0 +1,25 @@
+.home img{
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    margin-right: 40px;
+}
+
+.home .name{
+    font-size: 32px;
+    margin-bottom:10px;
+}
+
+.home .user{
+    display: flex;
+    align-items: center;
+    padding-bottom: 30px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid #ccc;
+}
+
+.home .access{}
+
+.userCard{
+    border: 1px solid #ccc;
+}

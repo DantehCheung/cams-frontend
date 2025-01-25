@@ -2,9 +2,9 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import Main from "../pages/main";
 import Home from "../pages/home";
 import Item from "../pages/item";
-import User from "../pages/user";
 import PageOne from "../pages/other/pageOne";
 import PageTwo from "../pages/other/pageTwo";
+import addUser from "../pages/manage/addUser";
 
 const routes = [
   {
@@ -26,7 +26,21 @@ const routes = [
       },
       {
         path: "user",
-        Component: User,
+        children: [
+          {
+            path: "addUser",
+            Component: addUser,
+          },
+        ],
+      },
+      {
+        path: "manage",
+        children: [
+          {
+            path: "addUser",
+            Component: addUser,
+          },
+        ],
       },
       {
         path: "other",

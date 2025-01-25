@@ -15,10 +15,29 @@ export default [
   },
   {
     path: "/user",
-    name: "user",
     label: "User",
-    url: "/user/index",
     icon: "UserOutlined",
+    children: [
+      {
+        path: "/user/addUser",
+        name: "addUser",
+        label: "Add User",
+        icon: "UserAddOutlined",
+      },
+    ],
+  },
+  {
+    path: "/manage",
+    label: "Data Manage",
+    icon: "DatabaseOutlined",
+    children: [
+      {
+        path: "/manage/addUser",
+        name: "addUser",
+        label: "Add User",
+        icon: "UserAddOutlined",
+      },
+    ],
   },
   {
     path: "/other",

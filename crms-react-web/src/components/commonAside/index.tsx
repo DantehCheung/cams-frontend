@@ -1,10 +1,11 @@
 import React from "react";
 import * as Icon from "@ant-design/icons";
 
-import { Button, Layout, Menu, theme } from "antd";
+import { Layout, Menu } from "antd";
 import MainConfig from "../../config";
+import { useNavigate } from "react-router-dom";
 
-const { Header, Sider, Content } = Layout;
+const { Sider } = Layout;
 
 // Define types
 interface MenuItem {
@@ -46,6 +47,7 @@ const items: MenuItem[] = MainConfig.map((icon: MainConfigItem) => {
     child.children = icon.children.map((subItem) => ({
       key: subItem.path,
       label: subItem.label,
+      icon: subItem.icon ? iconToElement(subItem.icon as IconName) : undefined,
     }));
   }
 
@@ -53,6 +55,13 @@ const items: MenuItem[] = MainConfig.map((icon: MainConfigItem) => {
 });
 
 const CommonAsider: React.FC = ({ collapsed }) => {
+  const navigate = useNavigate();
+
+  // 處理菜單點擊事件
+  const handleMenuClick = ({ key }: { key: string }) => {
+    navigate(key); // 跳轉到對應的路由
+  };
+
   console.log(collapsed, "commondasider");
   return (
     <Sider trigger={null} collapsed={collapsed}>
@@ -65,6 +74,7 @@ const CommonAsider: React.FC = ({ collapsed }) => {
         style={{
           height: "100%",
         }}
+        onClick={handleMenuClick} // on click event
       />
     </Sider>
   );
