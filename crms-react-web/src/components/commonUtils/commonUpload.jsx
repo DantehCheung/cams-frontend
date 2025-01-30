@@ -1,10 +1,10 @@
 import React from "react";
-import { message, Upload, UploadProps } from "antd";
+import { message, Upload } from "antd";
 import { InboxOutlined } from "@ant-design/icons";
 
 const { Dragger } = Upload;
 
-const props: UploadProps = {
+const props  = {
   name: "file",
   multiple: true,
   action: "https://660d2bd96ddfa2943b33731c.mockapi.io/api/upload",
@@ -24,8 +24,8 @@ const props: UploadProps = {
   },
 };
 
-const App: React.FC = () => (
-  <Dragger {...props}>
+const App = () => (
+  <Dragger style={{ width: 500, height: 300 }}>
     <p className="ant-upload-drag-icon">
       <InboxOutlined />
     </p>

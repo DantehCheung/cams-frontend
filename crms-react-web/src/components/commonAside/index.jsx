@@ -7,27 +7,11 @@ import { useNavigate } from "react-router-dom";
 
 const { Sider } = Layout;
 
-// Define types
-interface MenuItem {
-  key: string;
-  icon?: React.ReactNode;
-  label: string;
-  children?: MenuItem[];
-}
 
-interface MainConfigItem {
-  path: string;
-  label: string;
-  icon?: string;
-  children?: MainConfigItem[];
-  name?: string;
-  url?: string;
-}
 
-type IconName = keyof typeof Icon;
 
 // Safely create icon element
-const iconToElement = (name: IconName) => {
+const iconToElement = (name) => {
   const IconComponent = Icon[name];
   if (IconComponent) {
     return React.createElement(IconComponent);
@@ -36,10 +20,10 @@ const iconToElement = (name: IconName) => {
 };
 
 // Process menu data
-const items: MenuItem[] = MainConfig.map((icon: MainConfigItem) => {
-  const child: MenuItem = {
+const items = MainConfig.map((icon) => {
+  const child= {
     key: icon.path,
-    icon: icon.icon ? iconToElement(icon.icon as IconName) : undefined,
+    icon: icon.icon ? iconToElement(icon.icon) : undefined,
     label: icon.label,
   };
 
@@ -47,18 +31,18 @@ const items: MenuItem[] = MainConfig.map((icon: MainConfigItem) => {
     child.children = icon.children.map((subItem) => ({
       key: subItem.path,
       label: subItem.label,
-      icon: subItem.icon ? iconToElement(subItem.icon as IconName) : undefined,
+      icon: subItem.icon ? iconToElement(subItem.icon) : undefined,
     }));
   }
 
   return child;
 });
 
-const CommonAsider: React.FC = ({ collapsed }) => {
+const CommonAsider = ({ collapsed }) => {
   const navigate = useNavigate();
 
   // 處理菜單點擊事件
-  const handleMenuClick = ({ key }: { key: string }) => {
+  const handleMenuClick = ({ key }) => {
     navigate(key); // 跳轉到對應的路由
   };
 

@@ -17,7 +17,7 @@ import AddUser from "./manage/addUser";
 
 const { Header, Sider, Content } = Layout;
 
-const Main: React.FC = () => {
+const Main = () => {
   //  const [collapsed, setCollapsed] = useState(false);
   const {
     token: { colorBgContainer, borderRadiusLG },

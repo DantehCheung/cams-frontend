@@ -1,11 +1,11 @@
 import React from "react";
 
-import { Button, Layout, Avatar, Dropdown, MenuProps } from "antd";
+import { Button, Layout, Avatar, Dropdown } from "antd";
 import { MenuFoldOutlined } from "@ant-design/icons";
 
 import catImg from "../../assets/images/cat.png";
 import "./index.css";
-import { collapseMenu } from "../../store/reducers/tab";
+import { collapseMenu } from "../../store/modules/tabStore";
 import { useDispatch } from "react-redux";
 
 const { Header } = Layout;
@@ -16,7 +16,7 @@ const CommonHeader = ({ collapsed }) => {
   // define dispatch
   const dispatch = useDispatch();
 
-  const items: MenuProps["items"] = [
+  const items = [
     {
       key: "1",
       label: (

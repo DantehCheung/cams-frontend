@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
-import TabReducer from "./reducers/tab";
+import TabReducer from "./modules/tabStore";
 
+// combine all modules here
 export default configureStore({
   reducer: {
     // define the name by u -> tab

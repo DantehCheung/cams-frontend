@@ -56,6 +56,12 @@ export default [
         label: "Page 2",
         icon: "SettingOutlined",
       },
+      {
+        path: "/other/connectRFID",
+        name: "connectRFID",
+        label: "Connect RFID",
+        icon: "SettingOutlined",
+      },
     ],
   },
 ];

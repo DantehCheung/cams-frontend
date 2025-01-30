@@ -1,10 +1,12 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
-import Main from "../pages/main";
+import Main from "../pages/main.jsx";
 import Home from "../pages/home";
 import Item from "../pages/item";
 import PageOne from "../pages/other/pageOne";
 import PageTwo from "../pages/other/pageTwo";
 import addUser from "../pages/manage/addUser";
+import connectRFID from "../pages/other/connectRFID";
+import React from "react";
 
 const routes = [
   {
@@ -14,7 +16,7 @@ const routes = [
       //redirect to home, using navigate component from react-router-dom
       {
         path: "/",
-        element: <Navigate to="home" replace />,
+        element: <Navigate to="/home" />,
       },
       {
         path: "home",
@@ -52,6 +54,10 @@ const routes = [
           {
             path: "pageTwo",
             Component: PageTwo,
+          },
+          {
+            path: "connectRFID",
+            Component: connectRFID,
           },
         ],
       },

@@ -78,11 +78,11 @@ html, body {
 }
 
 .main-container {
-    min-height: calc(100vh - 64px); /* 修正 calc 函數 */
+    min-height:  calc(100vh - 64px); /* 修正 calc 函數 */
     background-color: #f0f0f0; /* 用於觀察高度 */
 }
 
-.main-container .app-name {
+.main-container .app-name { /*Logo style*/
     background-color: #001529;
     text-align: center;
     color: #fff;

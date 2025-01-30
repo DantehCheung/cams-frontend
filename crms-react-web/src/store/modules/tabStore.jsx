@@ -1,6 +1,8 @@
 import { createSlice } from "@reduxjs/toolkit"; // createSlice create reducer
 
 // when amend state, the state inside store through reducers to received an action
+
+// tab Store
 const tabSlice = createSlice({
   name: "tab",
   initialState: {

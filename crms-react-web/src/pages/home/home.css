@@ -21,5 +21,18 @@
 .home .access{}
 
 .userCard{
+    width: 450px;
     border: 1px solid #ccc;
+    margin-bottom: 20px;
+}
+
+.home .login-info p{
+    line-height: 28px;
+    font-size: 14px;
+    color: #999999;
+}
+
+.home .login-info p span{
+    color: #333;
+    margin-left: 60px;
 }
