@@ -36,3 +36,15 @@
     color: #333;
     margin-left: 60px;
 }
+
+.home .tableCard{
+    width: 1294px;
+    border: 1px solid #ccc;
+}
+
+.home .chartCard{
+    width: 800px;
+    height: 317px;
+    border: 1px solid #ccc;
+    margin-left: 50px;
+}

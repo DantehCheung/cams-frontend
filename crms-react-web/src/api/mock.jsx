@@ -1,6 +1,5 @@
 import Mock from "mockjs";
-import homeApi from "./mockServerData/home";
-import testApi from "./mockServerData/test";
+import assetApi from "./mockServerData/asset";
 
 // intercept all requests to /api/users
-Mock.mock(/home\/getData/, homeApi.getStatisticalData);
+Mock.mock(/home\/getData/, assetApi.getSchoolAssetData);

@@ -14,16 +14,22 @@ export default [
     icon: "LaptopOutlined",
   },
   {
-    path: "/user",
-    label: "User",
-    icon: "UserOutlined",
+    path: "/br",
+    label: "Borrow & Return",
+    icon: "LaptopOutlined",
     children: [
       {
-        path: "/user/addUser",
-        name: "addUser",
-        label: "Add User",
-        icon: "UserAddOutlined",
+        path: "/br/borrow",
+        name: "borrow",
+        label: "Borrow",
+        icon: "LaptopOutlined",
       },
+      {
+        path: "/br/return",
+        name: "return",
+        label: "Return",
+        icon: "LaptopOutlined",
+      }
     ],
   },
   {
@@ -37,6 +43,30 @@ export default [
         label: "Add User",
         icon: "UserAddOutlined",
       },
+      {
+        path: "/manage/genReport",
+        name: "genReport",
+        label: "Report",
+        icon: "FileTextOutlined",
+      },
+      {
+        path:"/manage/manageCampus",
+        name:"manageCampus",
+        label:"Campus",
+        icon:"ApartmentOutlined"
+      },
+      {
+        path:"/manage/manageRoom",
+        name:"manageRoom",
+        label:"Room",
+        icon:"ApartmentOutlined"
+      },
+      {
+        path:"/manage/manageItem",
+        name:"manageItem",
+        label:"Item",
+        icon:"ApartmentOutlined"
+      }
     ],
   },
   {
@@ -62,6 +92,12 @@ export default [
         label: "Connect RFID",
         icon: "SettingOutlined",
       },
+      {
+        path:"/other/downloadVer",
+        name:"downloadVer",
+        label:"Download Version",
+        icon:"CloudDownloadOutlined"
+      }
     ],
   },
 ];

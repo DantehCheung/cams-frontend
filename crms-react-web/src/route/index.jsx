@@ -6,7 +6,14 @@ import PageOne from "../pages/other/pageOne";
 import PageTwo from "../pages/other/pageTwo";
 import addUser from "../pages/manage/addUser";
 import connectRFID from "../pages/other/connectRFID";
-import React from "react";
+import downloadVer from "../pages/other/downloadVer.jsx"
+import  genReport from "../pages/manage/genReport";
+import manageCampus from "../pages/manage/manageCampus";
+import manageRoom from "../pages/manage/manageRoom";
+import manageItem from "../pages/manage/manageItem";
+import Borrow from "../pages/br/borrow";
+import Return from "../pages/br/return";
+import React, { Component } from "react";
 
 const routes = [
   {
@@ -27,12 +34,16 @@ const routes = [
         Component: Item,
       },
       {
-        path: "user",
+        path: "br",
         children: [
           {
-            path: "addUser",
-            Component: addUser,
+            path: "borrow",
+            Component: Borrow,
           },
+          {
+            path: "return",
+            Component: Return,
+          }
         ],
       },
       {
@@ -42,6 +53,22 @@ const routes = [
             path: "addUser",
             Component: addUser,
           },
+          {
+            path: "genReport",
+            Component: genReport,
+          },
+          {
+            path: "manageCampus",
+            Component: manageCampus,
+          },
+          {
+            path: "manageRoom",
+            Component: manageRoom,
+          },
+          {
+            path: "manageItem",
+            Component: manageItem,
+          }
         ],
       },
       {
@@ -59,6 +86,10 @@ const routes = [
             path: "connectRFID",
             Component: connectRFID,
           },
+          {
+            path: "downloadVer",
+            Component: downloadVer,
+          }
         ],
       },
     ],

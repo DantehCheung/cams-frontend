@@ -3,11 +3,11 @@ import { Typography, Select, Button, Divider, List } from "antd";
 
 const { Title } = Typography;
 const data = [
-  "Racing car sprays burning fuel into crowd.",
-  "Japanese princess to wed commoner.",
-  "Australian walks 100km after outback crash.",
-  "Man charged over missing wedding girl.",
-  "Los Angeles battles huge wildfires.",
+  "test",
+  "test.",
+  "test",
+  "test.",
+  "test",
 ];
 
 const connectRFID = () => {
@@ -75,6 +75,7 @@ const connectRFID = () => {
         dataSource={data}
         renderItem={(item) => <List.Item>{item}</List.Item>}
       />
+      <p> <Button type="primary" danger style={{marginTop:'20px'}}>Disconnect</Button></p>
     </div>
   );
 };
