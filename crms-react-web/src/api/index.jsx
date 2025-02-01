@@ -8,3 +8,11 @@ export const getData = () => {
     params: {},
   });
 };
+
+export const getMenu = (data) => {
+  return http.request({
+    url: "permission/getMenu",
+    method: "post",
+    params: {username,password},
+  });
+}
