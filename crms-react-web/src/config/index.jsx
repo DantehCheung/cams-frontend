@@ -16,19 +16,19 @@ export default [
   {
     path: "/br",
     label: "Borrow & Return",
-    icon: "LaptopOutlined",
+    icon: "BarcodeOutlined",
     children: [
       {
         path: "/br/borrow",
         name: "borrow",
         label: "Borrow",
-        icon: "LaptopOutlined",
+        icon: "BarcodeOutlined",
       },
       {
         path: "/br/return",
         name: "return",
         label: "Return",
-        icon: "LaptopOutlined",
+        icon: "BarcodeOutlined",
       }
     ],
   },
@@ -100,4 +100,10 @@ export default [
       }
     ],
   },
+  {
+    path: "/login",
+    name: "login",
+    label: "Login",
+    url: "/login/index",
+  }
 ];

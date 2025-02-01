@@ -14,6 +14,7 @@ import manageItem from "../pages/manage/manageItem";
 import Borrow from "../pages/br/borrow";
 import Return from "../pages/br/return";
 import React, { Component } from "react";
+import Login from "../pages/login";
 
 const routes = [
   {
@@ -91,9 +92,13 @@ const routes = [
             Component: downloadVer,
           }
         ],
-      },
+      }
     ],
   },
+  {
+      path:"login",
+      Component: Login,
+  }
 ];
 
 export default createBrowserRouter(routes);
