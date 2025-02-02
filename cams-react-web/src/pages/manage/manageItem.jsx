@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Card, Form, Input, Button, Table, Space, Modal, Typography, Upload, message } from "antd";
+import { Card, Form, Input, Button, Table, Space, Modal, Typography, Upload, message,Select } from "antd";
 import { InboxOutlined } from "@ant-design/icons";
 
 const { Title } = Typography;
@@ -11,6 +11,8 @@ const ManageItem = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form] = Form.useForm();
+  const [selectedCampus, setSelectedCampus] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
 
   const showAddModal = () => {
     setEditingItem(null);
@@ -59,6 +61,21 @@ const ManageItem = () => {
     form.resetFields();
   };
 
+  // Handle campus change
+  const handleCampusChange = (value) => {
+    setSelectedCampus(value);
+    // TODO: filter or update rooms based on selected campus if needed
+  };
+
+  // Handle ROOM CHANGE
+  const handleRoomChange = (value) => {
+    setSelectedRoom(value);
+  }
+
+  const handleSort = () => {  
+//...
+  }
+
   // Normalize upload file list
   const normFile = (e) => {
     if (Array.isArray(e)) return e;
@@ -98,15 +115,46 @@ const ManageItem = () => {
       <Card>
         <Title level={2}>Manage Item</Title>
         <Space style={{ marginBottom: 16 }}>
-          <Button type="primary" onClick={showAddModal}>
-            Add Item
-          </Button>
+        <Select
+            placeholder="Select Campus"
+            style={{ width: 150 }}
+            onChange={handleCampusChange}
+            value={selectedCampus}
+          >
+            <Select.Option value="">Chai Wan</Select.Option>
+            <Select.Option value="">Haking Wong</Select.Option>
+            <Select.Option value="">Kwai Chung</Select.Option>
+            <Select.Option value="">Kwun Tong</Select.Option>
+            <Select.Option value="">Lee Wai Lee</Select.Option>
+            <Select.Option value="">Morrison Hill</Select.Option>
+            <Select.Option value="">Sha Tin</Select.Option>
+            <Select.Option value="">Tsing Yi</Select.Option>
+            <Select.Option value="">Tuen Mun</Select.Option>
+          </Select>
+          <Select
+            placeholder="Select Room"
+            style={{ width: 150 }}
+            onChange={handleRoomChange}
+            value={selectedRoom}
+          >
+            <Select.Option value="">348</Select.Option>
+            <Select.Option value="">349</Select.Option>
+            <Select.Option value="">350</Select.Option>
+          </Select>
+          <Button type="primary" onClick={handleSort}>
+                      Select
+                    </Button>
+
+         
           <Search
             placeholder="Search items"
             onSearch={(value) => setSearchText(value)}
             onChange={(e) => setSearchText(e.target.value)}
             style={{ width: 300 }}
           />
+           <Button type="primary" onClick={showAddModal}>
+            Add Item
+          </Button>
         </Space>
         <Table
           columns={columns}
@@ -121,6 +169,31 @@ const ManageItem = () => {
         onCancel={handleCancel}
       >
         <Form form={form} layout="vertical">
+           <Form.Item label="Campus" name="campus"
+                     rules={[{ required: true, message: 'Please choose a campus!' }]}>
+                    <Select
+                      placeholder="Select Campus"
+                      style={{ width: 150 }}
+                    >
+                      <Select.Option value="">Chai Wan</Select.Option>
+                      <Select.Option value="">Haking Wong</Select.Option>
+                      <Select.Option value="">Kwai Chung</Select.Option>
+                      <Select.Option value="">Kwun Tong</Select.Option>
+                      <Select.Option value="">Lee Wai Lee</Select.Option>
+                      <Select.Option value="">Morrison Hill</Select.Option>
+                      <Select.Option value="">Sha Tin</Select.Option>
+                      <Select.Option value="">Tsing Yi</Select.Option>
+                      <Select.Option value="">Tuen Mun</Select.Option>
+                    </Select>
+                    </Form.Item>
+                 
+                    <Form.Item
+                      name="name"
+                      label="Room Name"
+                      rules={[{ required: true, message: 'Please input the room name!' }]}
+                    >
+                      <Input />
+                    </Form.Item>
           <Form.Item
             name="name"
             label="Item Name"
