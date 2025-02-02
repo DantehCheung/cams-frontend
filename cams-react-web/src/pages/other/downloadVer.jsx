@@ -7,7 +7,7 @@ const downloadVer = () => {
   return (
     <div>
       <form action="">
-      <Title level={2}>Download App Version</Title>
+      <Title level={2}>Download Electron App</Title>
       <p>
           <label>Distribution Package: </label>
           <Select

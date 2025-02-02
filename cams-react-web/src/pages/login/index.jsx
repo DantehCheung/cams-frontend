@@ -57,7 +57,7 @@ const Page = () => {
 <LoginFormPage
   logo={ReactLogo}
   backgroundVideoUrl="https://gw.alipayobjects.com/v/huamei_gcee1x/afts/video/jXRBRK_VAwoAAAAAAAAAAAAAK4eUAQBr"
-  title="CASM"
+  title="CAMS"
   containerStyle={{
     backgroundColor: 'rgba(0, 0, 0,0.65)',
     backdropFilter: 'blur(4px)',
@@ -78,20 +78,21 @@ const Page = () => {
       backgroundColor: 'rgba(255,255,255,0.25)',
       backdropFilter: 'blur(4px)',
     },
-    title: 'Event Title (Image Configurable)',
-    subTitle: 'Event description and details',
+    title: 'Campus Asset Management System',
     action: (
-      <Button
-        size="large"
-        style={{
-          borderRadius: 20,
-          background: token.colorBgElevated,
-          color: token.colorPrimary,
-          width: 120,
-        }}
-      >
-        Learn More
-      </Button>
+      <div
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'column',
+        marginTop: 20,
+      }}
+    >
+      <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
+        © 2025 IVE CW. All rights reserved.
+      </span>
+    </div>
     ),
   }}
   actions={

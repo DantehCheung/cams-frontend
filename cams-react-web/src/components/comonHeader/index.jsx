@@ -2,43 +2,33 @@ import React from "react";
 
 import { Button, Layout, Avatar, Dropdown } from "antd";
 import { MenuFoldOutlined } from "@ant-design/icons";
-
+import { useNavigate } from "react-router-dom";
 import catImg from "../../assets/images/cat.png";
 import "./index.css";
 import { collapseMenu } from "../../store/modules/tabStore";
 import { useDispatch } from "react-redux";
-
 const { Header } = Layout;
 //if want to keep relationship with event or state, const put inside function
 
+
+
 const CommonHeader = ({ collapsed }) => {
-  const logout = () => {};
+
   // define dispatch
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+
 
   const items = [
-    {
-      key: "1",
-      label: (
-        <a target="_blank" rel="noopener noreferrer" href="#">
-          User Center
-        </a>
-      ),
-    },
-    {
-      key: "2",
-      label: (
-        <a
-          onClick={() => logout}
-          target="_blank"
-          rel="noopener noreferrer"
-          href="#"
-        >
-          Logout
-        </a>
-      ),
-    },
+    { key: "userInfo", label: "User Center" },
+    { key: "login", label: "Logout" },
   ];
+
+  const handleMenuClick = ({ key }) => {
+
+      navigate(`/${key}`);
+    
+  };
 
   const setCollapsed = () => {
     console.log(collapsed);
@@ -57,7 +47,7 @@ const CommonHeader = ({ collapsed }) => {
         }}
         onClick={() => setCollapsed()}
       />
-      <Dropdown menu={{ items }}>
+      <Dropdown menu={{ items, onClick: handleMenuClick }}>
         <Avatar size={36} src={<img src={catImg} />} />
       </Dropdown>
     </Header>
