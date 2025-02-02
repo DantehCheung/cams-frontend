@@ -7,13 +7,6 @@ export default [
     icon: "HomeOutlined",
   },
   {
-    path: "/item",
-    name: "item",
-    label: "Item",
-    url: "/item/index",
-    icon: "LaptopOutlined",
-  },
-  {
     path: "/br",
     label: "Borrow & Return",
     icon: "BarcodeOutlined",

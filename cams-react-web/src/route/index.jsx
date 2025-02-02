@@ -1,7 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import Main from "../pages/main.jsx";
 import Home from "../pages/home";
-import Item from "../pages/item";
 import addUser from "../pages/manage/addUser";
 import connectRFID from "../pages/other/connectRFID";
 import downloadVer from "../pages/other/downloadVer.jsx"
@@ -28,10 +27,6 @@ const routes = [
       {
         path: "home",
         Component: Home,
-      },
-      {
-        path: "item",
-        Component: Item,
       },
       {
         path: "br",
