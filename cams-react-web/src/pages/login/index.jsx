@@ -33,7 +33,7 @@ const Page = () => {
   const handleSubmit = async (values) => {
     console.log('Username:', values.username);
     console.log('Password:', values.password);
-    // 在此處加入你的登入邏輯
+    // Login logic
     if (!values.password || !values.username) {
       return message.open({
         type: 'warning',
@@ -57,12 +57,12 @@ const Page = () => {
 <LoginFormPage
   logo={ReactLogo}
   backgroundVideoUrl="https://gw.alipayobjects.com/v/huamei_gcee1x/afts/video/jXRBRK_VAwoAAAAAAAAAAAAAK4eUAQBr"
-  title="CRMS"
+  title="CASM"
   containerStyle={{
     backgroundColor: 'rgba(0, 0, 0,0.65)',
     backdropFilter: 'blur(4px)',
   }}
-  subTitle="Campus Resource Management System"
+  subTitle="Campus Asset Management System"
   onFinish={async (values) => {
     await handleSubmit(values);
     return true;

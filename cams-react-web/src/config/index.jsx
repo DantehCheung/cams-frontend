@@ -75,18 +75,6 @@ export default [
     icon: "SettingOutlined",
     children: [
       {
-        path: "/other/pageOne",
-        name: "page1",
-        label: "Page 1",
-        icon: "SettingOutlined",
-      },
-      {
-        path: "/other/pageTwo",
-        name: "page2",
-        label: "Page 2",
-        icon: "SettingOutlined",
-      },
-      {
         path: "/other/connectRFID",
         name: "connectRFID",
         label: "Connect RFID",

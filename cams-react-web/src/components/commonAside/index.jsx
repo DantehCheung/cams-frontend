@@ -49,7 +49,7 @@ const CommonAsider = ({ collapsed }) => {
   console.log(collapsed, "commondasider");
   return (
     <Sider trigger={null} collapsed={collapsed}>
-      <h3 className="app-name">{collapsed ? "CRMS" : "CRMS CW SYSTEM"}</h3>
+      <h3 className="app-name">{collapsed ? "CAMS" : "CAMS CW SYSTEM"}</h3>
       <Menu
         theme="dark"
         mode="inline"

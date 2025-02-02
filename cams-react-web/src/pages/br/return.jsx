@@ -34,6 +34,7 @@ const Return = () => {
             <Input placeholder="Item to return" />
           </Form.Item>
           <Form.Item>
+          <Button style={{marginRight:'10px'}}>Scan Item RFID</Button>
             <Button type="primary" onClick={handleAddItem}>
               Add to List
             </Button>
@@ -46,7 +47,7 @@ const Return = () => {
             <Input placeholder="Student ID Number" />
           </Form.Item>
           <Form.Item>
-            <Button>Scan RFID</Button>
+            <Button>Scan Student RFID</Button>
           </Form.Item>
         </Form>
         <Table

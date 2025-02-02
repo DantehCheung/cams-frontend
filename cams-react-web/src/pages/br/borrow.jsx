@@ -67,6 +67,7 @@ const Borrow = () => {
             <Input placeholder="Item to borrow" />
           </Form.Item>
           <Form.Item>
+            <Button style={{marginRight:'10px'}}>Scan Item RFID</Button>
             <Button type="primary" onClick={handleAddItem}>Add to List</Button>
           </Form.Item>
           <Form.Item
@@ -77,7 +78,7 @@ const Borrow = () => {
             <Input placeholder="Student ID Number" />
           </Form.Item>
           <Form.Item>
-            <Button>Scan RFID</Button>
+            <Button>Scan Student RFID</Button>
           </Form.Item>
         </Form>
         <Table
