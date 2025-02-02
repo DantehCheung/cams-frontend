@@ -87,11 +87,5 @@ export default [
         icon:"CloudDownloadOutlined"
       }
     ],
-  },
-  {
-    path: "/login",
-    name: "login",
-    label: "Login",
-    url: "/login/index",
   }
 ];
