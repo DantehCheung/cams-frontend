@@ -18,6 +18,7 @@ import { Button, Divider, Space, Tabs, message, theme } from 'antd';
 import { useState } from 'react';
 import ReactLogo from "../../assets/react.svg"
 import {getMenu} from "../../api"
+import Video from "../../assets/video/login.mp4"
 
 const iconStyles = {
   color: 'rgba(0, 0, 0, 0.2)',
@@ -56,7 +57,7 @@ const Page = () => {
   
 <LoginFormPage
   logo={ReactLogo}
-  backgroundVideoUrl="https://gw.alipayobjects.com/v/huamei_gcee1x/afts/video/jXRBRK_VAwoAAAAAAAAAAAAAK4eUAQBr"
+  backgroundVideoUrl={Video}
   title="CAMS"
   containerStyle={{
     backgroundColor: 'rgba(0, 0, 0,0.65)',
