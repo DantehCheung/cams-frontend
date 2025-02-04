@@ -1,77 +1,94 @@
 import React, { useEffect, useRef } from "react";
 import { Card } from "antd";
 
-document.getElementById("clear")?.addEventListener("click", () => {
-    document.getElementById("output").innerHTML = "";
-});
+// 若有使用 preload 暴露 API，可從 window.electronAPI 取得，否則請依需求修正
+const ipcRenderer = window.electronAPI ? window.electronAPI.ipcRenderer : null;
 
-const electron_1 = require("electron");
-// Function to populate available devices
-function populateAvailableDevices(j) {
-    let devices = JSON.parse(j).devices;
-    const availableDeviceSelect = document.getElementById("availableDevice");
-    availableDeviceSelect.innerHTML = ""; // Clear existing options
-    devices.forEach((device, index) => {
+const RFID = () => {
+  const outputRef = useRef(null);
+  const availableDeviceRef = useRef(null);
+
+  // 清除輸出區內容
+  const handleClear = () => {
+    if (outputRef.current) {
+      outputRef.current.innerHTML = "";
+    }
+  };
+
+  // 處理連線按鈕點擊
+  const handleConnect = () => {
+    if (ipcRenderer) {
+      // 此處硬碼 0，實際上應從 availableDevice 取得選取值
+      ipcRenderer.send("connectUsbRfidReader", 0);
+    }
+  };
+
+  // 處理 Execute 按鈕點擊
+  const handleExecute = () => {
+    if (ipcRenderer) {
+      ipcRenderer.send("startLoopRead", 0);
+    }
+  };
+
+  // 處理 Stop 按鈕點擊
+  const handleStop = () => {
+    if (ipcRenderer) {
+      ipcRenderer.send("stopLoopRead", 0);
+    }
+  };
+
+  // 將回傳的訊息內加入到輸出區
+  const showDebugMsg = (channel) => {
+    if (ipcRenderer) {
+      ipcRenderer.on(channel, (event, message) => {
+        if (outputRef.current)
+          outputRef.current.innerHTML += `<span style="color:red;">${channel}</span>: ${message}<br>`;
+      });
+    }
+  };
+
+  // 將取得到的 available device 資料加入下拉選單
+  const populateAvailableDevices = (j) => {
+    if (availableDeviceRef.current) {
+      let devices = JSON.parse(j).devices;
+      availableDeviceRef.current.innerHTML = ""; // 清除現有選項
+      const defaultOption = document.createElement("option");
+      defaultOption.value = "";
+      defaultOption.textContent = "Select your RFID device";
+      defaultOption.disabled = true;
+      availableDeviceRef.current.appendChild(defaultOption);
+      devices.forEach((device, index) => {
         const option = document.createElement("option");
-        option.value = index.toString(); // Using index as the value
-        option.textContent = device; // Assuming device has a string representation
-        availableDeviceSelect.appendChild(option);
-    });
-}
-function showDegubMsg(e) {
-    electron_1.ipcRenderer.on(e, (event, message) => {
-        document.getElementById("output").innerHTML += `<span style="color:red;">${e}</span>: ${message}<br>`;
-    })
-}
+        option.value = index.toString();
+        option.textContent = device;
+        availableDeviceRef.current.appendChild(option);
+      });
+    }
+  };
 
-function addIpcRendererOn() {
-    // 小心不要重覆開event listenner
-    electron_1.ipcRenderer.on("replyGetUsbDeviceList", (event, devices) => {
+  // 設定 ipcRenderer 的事件監聽
+  const addIpcRendererOn = () => {
+    if (ipcRenderer) {
+      ipcRenderer.on("replyGetUsbDeviceList", (event, devices) => {
         populateAvailableDevices(devices);
-    });
+      });
+      showDebugMsg("replyConnectUsbRfidReader");
+      showDebugMsg("replySingleRead");
+      showDebugMsg("newScannedTag");
+      showDebugMsg("scanningOver");
+      showDebugMsg("replyGetRfidReaderInformation");
+      showDebugMsg("replyStartLoopRead");
+      showDebugMsg("replyStopLoopRead");
+    }
+  };
 
-    showDegubMsg("replyConnectUsbRfidReader");
-    showDegubMsg("replySingleRead");
-    showDegubMsg("newScannedTag");
-    showDegubMsg("scanningOver");
-    showDegubMsg("replyGetRfidReaderInformation");
-    showDegubMsg("replyStartLoopRead");
-    showDegubMsg("replyStopLoopRead");
-
-}
-
-window.onload = () => {
-    addIpcRendererOn() // 先開好event listenner最安全
-
-    electron_1.ipcRenderer.send("getUsbDeviceList");
-    
-};
-// Connect button event
-document.getElementById("connectBtn")?.addEventListener("click", () => {
-    // 我在這hardcode 0，實際上應該是從availableDevice取得
-    electron_1.ipcRenderer.send("connectUsbRfidReader", 0);
-    
-});
-
-document.getElementById("execute")?.addEventListener("click", () => {
-    // test area
-    // GetRfidReaderInformation
-    // electron_1.ipcRenderer.send("getRfidReaderInformation",0);
-    // electron_1.ipcRenderer.on("replyGetRfidReaderInformation", (event, message) => {
-    //     document.getElementById("output").innerHTML += message + "<br>";
-    // })
-
-    // read Sigle
-    //electron_1.ipcRenderer.send("singleRead", 0);
-
-    // start read loop
-    electron_1.ipcRenderer.send("startLoopRead", 0);
-});
-
-document.getElementById("stop")?.addEventListener("click", () => {
-    electron_1.ipcRenderer.send("stopLoopRead", 0);
-});
-
+  // 模擬 document ready 使用 useEffect
+  useEffect(() => {
+    addIpcRendererOn();
+    if (ipcRenderer) {
+      ipcRenderer.send("getUsbDeviceList");
+    }
+  }, []); // 空依賴陣列表示僅在組件掛載後執行一次
 
   return (
     <Card>
@@ -88,7 +105,6 @@ document.getElementById("stop")?.addEventListener("click", () => {
           Select your RFID device
         </option>
       </select>
-      <br />
       <button id="connectBtn" onClick={handleConnect}>
         Connect
       </button>
