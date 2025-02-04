@@ -8,7 +8,7 @@ export default defineConfig({
        // 配置 JSX 运行时
        jsxRuntime: 'automatic', 
        // 让插件处理 .js 文件中的 JSX
-       include: [/\.jsx?$/, /\.tsx?$/]
+       include: [/\.jsx?$/]
     }
   )],
   
