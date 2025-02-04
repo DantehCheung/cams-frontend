@@ -76,6 +76,10 @@ const routes = [
           {
             path: "downloadVer",
             Component: downloadVer,
+          },
+          {
+            path:"rfidTest",
+            
           }
         ],
       },{
