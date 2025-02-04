@@ -26,7 +26,6 @@ const RFID = () => {
   // 處理 Execute 按鈕點擊
   const handleExecute = () => {
     if (ipcRenderer) {
-      // 例如觸發 startLoopRead 指令
       ipcRenderer.send("startLoopRead", 0);
     }
   };
@@ -52,15 +51,12 @@ const RFID = () => {
   const populateAvailableDevices = (j) => {
     if (availableDeviceRef.current) {
       let devices = JSON.parse(j).devices;
-      // 清除現有選項
-      availableDeviceRef.current.innerHTML = "";
-      // 新增預設 disabled 選項
+      availableDeviceRef.current.innerHTML = ""; // 清除現有選項
       const defaultOption = document.createElement("option");
       defaultOption.value = "";
       defaultOption.textContent = "Select your RFID device";
       defaultOption.disabled = true;
       availableDeviceRef.current.appendChild(defaultOption);
-      // 依據取得的資料新增選項
       devices.forEach((device, index) => {
         const option = document.createElement("option");
         option.value = index.toString();
@@ -70,13 +66,12 @@ const RFID = () => {
     }
   };
 
-  // 一次性設定 ipcRenderer 的事件監聽
+  // 設定 ipcRenderer 的事件監聽
   const addIpcRendererOn = () => {
     if (ipcRenderer) {
       ipcRenderer.on("replyGetUsbDeviceList", (event, devices) => {
         populateAvailableDevices(devices);
       });
-      // 註冊其他事件監聽
       showDebugMsg("replyConnectUsbRfidReader");
       showDebugMsg("replySingleRead");
       showDebugMsg("newScannedTag");
@@ -87,13 +82,13 @@ const RFID = () => {
     }
   };
 
+  // 模擬 document ready 使用 useEffect
   useEffect(() => {
-    // 組件掛載後，設定 ipcRenderer 監聽，並要求取得 USB 裝置清單
     addIpcRendererOn();
     if (ipcRenderer) {
       ipcRenderer.send("getUsbDeviceList");
     }
-  }, []);
+  }, []); // 空依賴陣列表示僅在組件掛載後執行一次
 
   return (
     <Card>
