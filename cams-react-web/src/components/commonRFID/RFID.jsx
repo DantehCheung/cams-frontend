@@ -1,77 +1,69 @@
 import React, { useEffect, useRef } from "react";
 import { Card } from "antd";
 
-document.getElementById("clear")?.addEventListener("click", () => {
-    document.getElementById("output").innerHTML = "";
-});
+const RFID = () => {
+  const outputRef = useRef(null);
+  const availableDeviceRef = useRef(null);
 
-const electron_1 = require("electron");
-// Function to populate available devices
-function populateAvailableDevices(j) {
-    let devices = JSON.parse(j).devices;
-    const availableDeviceSelect = document.getElementById("availableDevice");
-    availableDeviceSelect.innerHTML = ""; // Clear existing options
-    devices.forEach((device, index) => {
-        const option = document.createElement("option");
-        option.value = index.toString(); // Using index as the value
-        option.textContent = device; // Assuming device has a string representation
-        availableDeviceSelect.appendChild(option);
-    });
-}
-function showDegubMsg(e) {
-    electron_1.ipcRenderer.on(e, (event, message) => {
-        document.getElementById("output").innerHTML += `<span style="color:red;">${e}</span>: ${message}<br>`;
-    })
-}
+  // 清除輸出區內容
+  const handleClear = () => {
+    if (outputRef.current) {
+      outputRef.current.innerHTML = "";
+    }
+  };
 
-function addIpcRendererOn() {
-    // 小心不要重覆開event listenner
-    electron_1.ipcRenderer.on("replyGetUsbDeviceList", (event, devices) => {
+  // 將取得的 device 資料轉換並加入下拉選單
+  function populateAvailableDevices(jsonString) {
+    try {
+      let devices = JSON.parse(jsonString).devices;
+      if (availableDeviceRef.current) {
+        availableDeviceRef.current.innerHTML = ""; // 清除現有選項
+        devices.forEach((device, index) => {
+          const option = document.createElement("option");
+          option.value = index.toString(); // 使用 index 作為值
+          option.textContent = device; // 假設 device 為可顯示字串
+          availableDeviceRef.current.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error("failed to parse devices:", error);
+    }
+  }
+
+  // 設定事件監聽，將收到的訊息顯示在 output 區域
+  function showDebugMsg(channel) {
+    if (window.electronAPI) {
+      window.electronAPI.on(channel, (event, message) => {
+        if (outputRef.current) {
+          outputRef.current.innerHTML += `<span style="color:red;">${channel}</span>: ${message}<br>`;
+        }
+      });
+    }
+  }
+
+  // 設定所有 ipcRenderer 監聽事件
+  function addIpcRendererOn() {
+    if (window.electronAPI) {
+      window.electronAPI.on("replyGetUsbDeviceList", (event, devices) => {
         populateAvailableDevices(devices);
-    });
+      });
+      showDebugMsg("replyConnectUsbRfidReader");
+      showDebugMsg("replySingleRead");
+      showDebugMsg("newScannedTag");
+      showDebugMsg("scanningOver");
+      showDebugMsg("replyGetRfidReaderInformation");
+      showDebugMsg("replyStartLoopRead");
+      showDebugMsg("replyStopLoopRead");
+    }
+  }
 
-    showDegubMsg("replyConnectUsbRfidReader");
-    showDegubMsg("replySingleRead");
-    showDegubMsg("newScannedTag");
-    showDegubMsg("scanningOver");
-    showDegubMsg("replyGetRfidReaderInformation");
-    showDegubMsg("replyStartLoopRead");
-    showDegubMsg("replyStopLoopRead");
-
-}
-
-window.onload = () => {
-    addIpcRendererOn() // 先開好event listenner最安全
-
-    electron_1.ipcRenderer.send("getUsbDeviceList");
-    
-};
-// Connect button event
-document.getElementById("connectBtn")?.addEventListener("click", () => {
-    // 我在這hardcode 0，實際上應該是從availableDevice取得
-    electron_1.ipcRenderer.send("connectUsbRfidReader", 0);
-    
-});
-
-document.getElementById("execute")?.addEventListener("click", () => {
-    // test area
-    // GetRfidReaderInformation
-    // electron_1.ipcRenderer.send("getRfidReaderInformation",0);
-    // electron_1.ipcRenderer.on("replyGetRfidReaderInformation", (event, message) => {
-    //     document.getElementById("output").innerHTML += message + "<br>";
-    // })
-
-    // read Sigle
-    //electron_1.ipcRenderer.send("singleRead", 0);
-
-    // start read loop
-    electron_1.ipcRenderer.send("startLoopRead", 0);
-});
-
-document.getElementById("stop")?.addEventListener("click", () => {
-    electron_1.ipcRenderer.send("stopLoopRead", 0);
-});
-
+  // 在組件掛載後設定 event listeners 與發送初始訊息
+  useEffect(() => {
+    addIpcRendererOn();
+    if (window.electronAPI) {
+      window.electronAPI.send("getUsbDeviceList");
+    }
+  }, []);
 
   return (
     <Card>
@@ -89,21 +81,43 @@ document.getElementById("stop")?.addEventListener("click", () => {
         </option>
       </select>
       <br />
-      <button id="connectBtn" onClick={handleConnect}>
+      <button
+        id="connectBtn"
+        onClick={() => {
+          if (window.electronAPI) {
+            // 此處硬碼 0，實際上可從 availableDevice 選項取得選取值
+            window.electronAPI.send("connectUsbRfidReader", 0);
+          }
+        }}
+      >
         Connect
       </button>
       <br />
-      <button id="execute" onClick={handleExecute}>
+      <button
+        id="execute"
+        onClick={() => {
+          if (window.electronAPI) {
+            window.electronAPI.send("startLoopRead", 0);
+          }
+        }}
+      >
         Execute
       </button>
-      <button id="stop" onClick={handleStop}>
+      <button
+        id="stop"
+        onClick={() => {
+          if (window.electronAPI) {
+            window.electronAPI.send("stopLoopRead", 0);
+          }
+        }}
+      >
         Stop
       </button>
       <button id="clear" onClick={handleClear}>
         Clear
       </button>
       <br />
-      <div id="output" style={{ overflow: "hidden" }} ref={outputRef}></div>
+      <div id="output" ref={outputRef} style={{ overflow: "hidden" }}></div>
     </Card>
   );
 };
