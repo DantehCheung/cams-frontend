@@ -1,112 +1,132 @@
-import React from "react"
-import {Card} from "antd"
+import React, { useEffect, useRef } from "react";
+import { Card } from "antd";
 
-
-
-document.getElementById("clear")?.addEventListener("click", () => {
-    document.getElementById("output").innerHTML = "";
-});
-
-const electron_1 = require("electron");
-// Function to populate available devices
-function populateAvailableDevices(j) {
-    let devices = JSON.parse(j).devices;
-    const availableDeviceSelect = document.getElementById("availableDevice");
-    availableDeviceSelect.innerHTML = ""; // Clear existing options
-    devices.forEach((device, index) => {
-        const option = document.createElement("option");
-        option.value = index.toString(); // Using index as the value
-        option.textContent = device; // Assuming device has a string representation
-        availableDeviceSelect.appendChild(option);
-    });
-}
-function showDegubMsg(e) {
-    electron_1.ipcRenderer.on(e, (event, message) => {
-        document.getElementById("output").innerHTML += `<span style="color:red;">${e}</span>: ${message}<br>`;
-    })
-}
-
-function addIpcRendererOn() {
-    // 小心不要重覆開event listenner
-    electron_1.ipcRenderer.on("replyGetUsbDeviceList", (event, devices) => {
-        populateAvailableDevices(devices);
-    });
-
-    showDegubMsg("replyConnectUsbRfidReader");
-    showDegubMsg("replySingleRead");
-    showDegubMsg("newScannedTag");
-    showDegubMsg("scanningOver");
-    showDegubMsg("replyGetRfidReaderInformation");
-    showDegubMsg("replyStartLoopRead");
-    showDegubMsg("replyStopLoopRead");
-
-}
-
-window.onload = () => {
-    addIpcRendererOn() // 先開好event listenner最安全
-
-    electron_1.ipcRenderer.send("getUsbDeviceList");
-    
-};
-// Connect button event
-document.getElementById("connectBtn")?.addEventListener("click", () => {
-    // 我在這hardcode 0，實際上應該是從availableDevice取得
-    electron_1.ipcRenderer.send("connectUsbRfidReader", 0);
-    
-});
-
-document.getElementById("execute")?.addEventListener("click", () => {
-    // test area
-    // GetRfidReaderInformation
-    // electron_1.ipcRenderer.send("getRfidReaderInformation",0);
-    // electron_1.ipcRenderer.on("replyGetRfidReaderInformation", (event, message) => {
-    //     document.getElementById("output").innerHTML += message + "<br>";
-    // })
-
-    // read Sigle
-    //electron_1.ipcRenderer.send("singleRead", 0);
-
-    // start read loop
-    electron_1.ipcRenderer.send("startLoopRead", 0);
-});
-
-document.getElementById("stop")?.addEventListener("click", () => {
-    electron_1.ipcRenderer.send("stopLoopRead", 0);
-});
-
+// 若有使用 preload 暴露 API，可從 window.electronAPI 取得，否則請依需求修正
+const ipcRenderer = window.electronAPI ? window.electronAPI.ipcRenderer : null;
 
 const RFID = () => {
+  const outputRef = useRef(null);
+  const availableDeviceRef = useRef(null);
 
-    
-    
-   <Card>
-   <h1>Connect to RFID Reader</h1>
-<br/>
-<label for="connectType">Connection Type:</label>
-<select id="connectType">
-<option value="USB">USB</option>
-</select>
-<br/>
-<label for="availableDevice">Available Devices:</label>
-<select id="availableDevice">
-<option value="" disabled selected>Select your RFID device</option>
+  // 清除輸出區內容
+  const handleClear = () => {
+    if (outputRef.current) {
+      outputRef.current.innerHTML = "";
+    }
+  };
 
-</select>
-<button id="connectBtn">Connect</button>
-<br/>
-<button id="execute">Execute</button>
-<button id="stop">Stop</button>
-<button id="clear">Clear</button>
-<br/>
-<div id="output" style="overflow: hidden;"></div>
-   </Card>
+  // 處理連線按鈕點擊
+  const handleConnect = () => {
+    if (ipcRenderer) {
+      // 此處硬碼 0，實際上應從 availableDevice 取得選取值
+      ipcRenderer.send("connectUsbRfidReader", 0);
+    }
+  };
 
+  // 處理 Execute 按鈕點擊
+  const handleExecute = () => {
+    if (ipcRenderer) {
+      // 例如觸發 startLoopRead 指令
+      ipcRenderer.send("startLoopRead", 0);
+    }
+  };
 
+  // 處理 Stop 按鈕點擊
+  const handleStop = () => {
+    if (ipcRenderer) {
+      ipcRenderer.send("stopLoopRead", 0);
+    }
+  };
 
+  // 將回傳的訊息內加入到輸出區
+  const showDebugMsg = (channel) => {
+    if (ipcRenderer) {
+      ipcRenderer.on(channel, (event, message) => {
+        if (outputRef.current)
+          outputRef.current.innerHTML += `<span style="color:red;">${channel}</span>: ${message}<br>`;
+      });
+    }
+  };
 
+  // 將取得到的 available device 資料加入下拉選單
+  const populateAvailableDevices = (j) => {
+    if (availableDeviceRef.current) {
+      let devices = JSON.parse(j).devices;
+      // 清除現有選項
+      availableDeviceRef.current.innerHTML = "";
+      // 新增預設 disabled 選項
+      const defaultOption = document.createElement("option");
+      defaultOption.value = "";
+      defaultOption.textContent = "Select your RFID device";
+      defaultOption.disabled = true;
+      availableDeviceRef.current.appendChild(defaultOption);
+      // 依據取得的資料新增選項
+      devices.forEach((device, index) => {
+        const option = document.createElement("option");
+        option.value = index.toString();
+        option.textContent = device;
+        availableDeviceRef.current.appendChild(option);
+      });
+    }
+  };
 
+  // 一次性設定 ipcRenderer 的事件監聽
+  const addIpcRendererOn = () => {
+    if (ipcRenderer) {
+      ipcRenderer.on("replyGetUsbDeviceList", (event, devices) => {
+        populateAvailableDevices(devices);
+      });
+      // 註冊其他事件監聽
+      showDebugMsg("replyConnectUsbRfidReader");
+      showDebugMsg("replySingleRead");
+      showDebugMsg("newScannedTag");
+      showDebugMsg("scanningOver");
+      showDebugMsg("replyGetRfidReaderInformation");
+      showDebugMsg("replyStartLoopRead");
+      showDebugMsg("replyStopLoopRead");
+    }
+  };
 
+  useEffect(() => {
+    // 組件掛載後，設定 ipcRenderer 監聽，並要求取得 USB 裝置清單
+    addIpcRendererOn();
+    if (ipcRenderer) {
+      ipcRenderer.send("getUsbDeviceList");
+    }
+  }, []);
 
-}
+  return (
+    <Card>
+      <h1>Connect to RFID Reader</h1>
+      <br />
+      <label>Connection Type:</label>
+      <select id="connectType">
+        <option value="USB">USB</option>
+      </select>
+      <br />
+      <label>Available Devices:</label>
+      <select id="availableDevice" ref={availableDeviceRef} defaultValue="">
+        <option value="" disabled>
+          Select your RFID device
+        </option>
+      </select>
+      <button id="connectBtn" onClick={handleConnect}>
+        Connect
+      </button>
+      <br />
+      <button id="execute" onClick={handleExecute}>
+        Execute
+      </button>
+      <button id="stop" onClick={handleStop}>
+        Stop
+      </button>
+      <button id="clear" onClick={handleClear}>
+        Clear
+      </button>
+      <br />
+      <div id="output" style={{ overflow: "hidden" }} ref={outputRef}></div>
+    </Card>
+  );
+};
 
 export default RFID;
