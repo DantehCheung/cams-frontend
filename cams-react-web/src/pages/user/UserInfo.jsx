@@ -54,11 +54,11 @@ const UserInfo = () => {
         {/* Avatar Section */}
         {mode === 'edit' ? (
           <Space direction="vertical">
-            <Avatar size={64} src={user.photo || undefined}>
+            <Avatar size={64} src={user.photo || undefined} >
               {user.name.charAt(0)}
             </Avatar>
-            <Upload customRequest={customUpload} showUploadList={false}>
-              <Button icon={<UploadOutlined />}>Change Avatar</Button>
+            <Upload customRequest={customUpload} showUploadList={false} >
+              <Button style={{ margin: "20px" }} icon={<UploadOutlined />}>Change Avatar</Button>
             </Upload>
           </Space>
         ) : (
@@ -70,6 +70,7 @@ const UserInfo = () => {
         <Descriptions column={1}>
           <Descriptions.Item label="Name">
             <ProField
+             placeholder="Please Enter Your Name"
               text={user.name}
               mode={mode}
               fieldProps={{
@@ -82,6 +83,7 @@ const UserInfo = () => {
           </Descriptions.Item>
           <Descriptions.Item label="Email">
             <ProField
+            placeholder="Please Enter Your Email"
               text={user.email}
               mode={mode}
               fieldProps={{
@@ -94,6 +96,7 @@ const UserInfo = () => {
           </Descriptions.Item>
           <Descriptions.Item label="Department">
             <ProField
+            placeholder="Please Enter Your Department"
               text={user.department}
               mode={mode}
               fieldProps={{
@@ -106,6 +109,7 @@ const UserInfo = () => {
           </Descriptions.Item>
           <Descriptions.Item label="Password">
             <ProField
+            placeholder="Please Enter Your Password"
               text={user.password}
               mode={mode}
               fieldProps={{
