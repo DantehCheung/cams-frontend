@@ -9,10 +9,11 @@ export const getData = () => {
   });
 };
 
+
 export const getMenu = (data) => {
   return http.request({
     url: "permission/getMenu",
     method: "post",
-    params: {username,password},
+    data: { username, password }, // Change params to data
   });
-}
+};

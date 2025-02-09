@@ -19,6 +19,7 @@ import { useState } from 'react';
 import ReactLogo from "../../assets/react.svg"
 import {getMenu} from "../../api"
 import Video from "../../assets/video/login.mp4"
+import { useNavigate } from 'react-router-dom';
 
 const iconStyles = {
   color: 'rgba(0, 0, 0, 0.2)',
@@ -30,9 +31,9 @@ const iconStyles = {
 const Page = () => {
   const [loginType, setLoginType] = useState('account');
   const { token } = theme.useToken();
-
+  const navigate = useNavigate();
   const handleSubmit = async (values) => {
-    console.log('Username:', values.username);
+   /** console.log('Username:', values.username);
     console.log('Password:', values.password);
     // Login logic
     if (!values.password || !values.username) {
@@ -44,7 +45,11 @@ const Page = () => {
     getMenu(values).then(({ data }) => {
       console.log(values)
       console.log(data);
-    });
+    }); */
+    if(values.username === "kenlau" && values.password === "kenlau")
+    {
+      navigate("/home");
+    }
   };
 
   return (
