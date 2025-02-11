@@ -22,7 +22,7 @@ const routes = [
       //redirect to home, using navigate component from react-router-dom
       {
         path: "/",
-        element: <Navigate to="/home" />,
+        element: <Navigate to="/login" />,
       },
       {
         path: "home",
