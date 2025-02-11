@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Typography, Select, Button, Divider, Form, Row, Col, Card, message } from "antd";
 import RFID from "../../components/commonRFID/RFID";
-const { ipcRenderer } = window.require("electron");
+let inBrowser = true;
+try{
+var { ipcRenderer } = window.require("electron");
+inBrowser = false;
+}catch(e){
+  inBrowser = true;}
 let isLoad = false;
 
 const { Title } = Typography;
@@ -41,7 +46,7 @@ const ConnectRFID = () => {
   };
 
   useEffect(() => {
-    if (isLoad) {
+    if (isLoad || inBrowser) {
       return;
     }
     isLoad = true;

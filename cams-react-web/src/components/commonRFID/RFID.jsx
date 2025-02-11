@@ -1,6 +1,12 @@
-import React, { useEffect, useRef} from "react";
+import React, { useEffect, useRef } from "react";
 import { Card } from "antd";
-const { ipcRenderer } = window.require("electron");
+let inBrowser = true;
+try {
+  var { ipcRenderer }=window.require("electron");
+  inBrowser = false;
+} catch (e) {
+  inBrowser = true;
+}
 let isLoad = false;
 
 const RFID = () => {
@@ -37,8 +43,8 @@ const RFID = () => {
   };
 
   useEffect(() => {
-    if(isLoad){
-        return;
+    if (isLoad || inBrowser) {
+      return;
     }
     isLoad = true;
     addIpcRendererOn();
@@ -49,7 +55,7 @@ const RFID = () => {
     });
 
     document.getElementById("connectBtn").addEventListener("click", () => {
-        document.getElementById("output").innerHTML += `<span style="color:red;">"connectBtn"</span>: 1<br>`;
+      document.getElementById("output").innerHTML += `<span style="color:red;">"connectBtn"</span>: 1<br>`;
       ipcRenderer.send("connectUsbRfidReader", 0);
     });
 
