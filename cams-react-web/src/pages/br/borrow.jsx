@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Card, Form, Input, Button, DatePicker, Table, notification } from "antd";
+import { Card, Form, Input, Button, DatePicker, Table, notification, Select, Row, Col } from "antd";
 import "./borrow.css"; // css file
 // insert react redux hooks
 import { useSelector, useDispatch } from "react-redux";
@@ -87,13 +87,34 @@ const Borrow = () => {
     <div className="borrow-container">
       <Card title="Reservations (Please complete on-site borrowing within three days)">
         <Form form={reservationForm} layout="inline" onFinish={handleReserve}>
-          <Form.Item
-            name="item"
-            label="Item"
-            rules={[{ required: true }]}
-          >
-            <Input placeholder="Item Name" />
-          </Form.Item>
+
+        <Form.Item label="Room" name="room"
+                     rules={[{ required: true, message: 'Please choose a room!' }]}>
+                    <Select
+                      placeholder="Select Room"
+                      style={{ width: 150 }}
+                    >
+                      
+                      <Select.Option value="">ROOM 348</Select.Option>
+                      <Select.Option value="">ROOM 349</Select.Option>
+                      <Select.Option value="">ROOM 350</Select.Option>
+                    </Select>
+                    </Form.Item>
+                 
+        
+          <Form.Item label="Item" name="item"
+                     rules={[{ required: true, message: 'Please choose a item!' }]}>
+                    <Select
+                      placeholder="Select Item"
+                      style={{ width: 150 }}
+                    >
+                      
+                      <Select.Option value="">spider</Select.Option>
+                      <Select.Option value="">dog</Select.Option>
+                      <Select.Option value="">robot car</Select.Option>
+                    </Select>
+                    </Form.Item>
+
           <Form.Item
             name="dateRange"
             label="Reservation Date"
@@ -108,25 +129,65 @@ const Borrow = () => {
       </Card>
 
       <Card title="Borrow Items (Multiple items allowed)">
-        <Form form={borrowForm} layout="inline">
-          <Form.Item name="borrowItem" label="Item">
-            <Input placeholder="Item to borrow" />
-          </Form.Item>
-          <Form.Item>
-            <Button style={{ marginRight: '10px' }}>Scan Item RFID</Button>
-            <Button type="primary" onClick={handleAddItem}>Add to List</Button>
-          </Form.Item>
-          <Form.Item
-            name="studentId"
-            label="Student ID"
-            rules={[{ required: true }]}
-          >
-            <Input placeholder="Student ID Number" />
-          </Form.Item>
-          <Form.Item>
-            <Button>Scan Student RFID</Button>
-          </Form.Item>
-        </Form>
+      <Form form={borrowForm} layout="vertical">
+    <Row gutter={16}>
+        <Col span={6}>
+            <Form.Item 
+                label="Room" 
+                name="room"
+                rules={[{ required: true, message: 'Please choose a room!' }]}
+            >
+                <Select placeholder="Select Room">
+                    <Select.Option value="ROOM348">ROOM 348</Select.Option>
+                    <Select.Option value="ROOM349">ROOM 349</Select.Option>
+                    <Select.Option value="ROOM350">ROOM 350</Select.Option>
+                </Select>
+            </Form.Item>
+        </Col>
+        <Col span={6}>
+            <Form.Item 
+                label="Item" 
+                name="item"
+                rules={[{ required: true, message: 'Please choose an item!' }]}
+            >
+                <Select placeholder="Select Item">
+                    <Select.Option value="spider">spider</Select.Option>
+                    <Select.Option value="dog">dog</Select.Option>
+                    <Select.Option value="robotcar">robot car</Select.Option>
+                </Select>
+            </Form.Item>
+        </Col>
+        <Col span={6}>
+            <Form.Item 
+                label="Student ID" 
+                name="studentId"
+                rules={[{ required: true, message: 'Please enter your Student ID!' }]}
+            >
+                <Input placeholder="Student ID Number" />
+            </Form.Item>
+        </Col>
+    </Row>
+
+    <Row gutter={16}>
+        <Col span={8}>
+            <Form.Item>
+                <Button block style={{ marginBottom: 8 }}>Scan Item RFID</Button>
+            </Form.Item>
+        </Col>
+        <Col span={8}>
+            <Form.Item>
+                <Button block type="primary" onClick={handleAddItem} style={{ marginBottom: 8 }}>
+                    Add to List
+                </Button>
+            </Form.Item>
+        </Col>
+        <Col span={8}>
+            <Form.Item>
+                <Button block>Scan Student RFID</Button>
+            </Form.Item>
+        </Col>
+    </Row>
+</Form>
         <Table
           columns={columns}
           dataSource={items}
