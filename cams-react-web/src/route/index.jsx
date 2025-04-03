@@ -1,43 +1,56 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import Main from "../pages/main.jsx";
 import Home from "../pages/home";
-import addUser from "../pages/manage/addUser";
-import connectRFID from "../pages/other/connectRFID";
-import downloadVer from "../pages/other/downloadVer.jsx"
-import  genReport from "../pages/manage/genReport";
-import manageCampus from "../pages/manage/manageCampus";
-import manageRoom from "../pages/manage/manageRoom";
-import manageItem from "../pages/manage/manageItem";
+import AddUser from "../pages/manage/addUser";
+import ConnectRFID from "../pages/other/connectRFID";
+import DownloadVer from "../pages/other/downloadVer.jsx"
+import GenReport from "../pages/manage/genReport";
+import ManageCampus from "../pages/manage/manageCampus";
+import ManageRoom from "../pages/manage/manageRoom";
+import ManageItem from "../pages/manage/manageItem";
 import Borrow from "../pages/br/borrow";
 import Return from "../pages/br/return";
-import React, { Component } from "react";
+import React from "react";
 import Login from "../pages/login";
 import UserInfo from "../pages/user/UserInfo.jsx";
+import ProtectedRoute from "../components/ProtectedRoute";
+import { PAGE_PERMISSIONS, ACCESS_LEVELS } from "../api";
 
 const routes = [
   {
     path: "/",
     Component: Main,
     children: [
-      //redirect to home, using navigate component from react-router-dom
       {
         path: "/",
         element: <Navigate to="/login" />,
       },
       {
         path: "home",
-        Component: Home,
+        element: (
+          <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.HOME}>
+            <Home />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "br",
         children: [
           {
             path: "borrow",
-            Component: Borrow,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.GUEST} requiredPageBit={PAGE_PERMISSIONS.BORROW}>
+                <Borrow />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "return",
-            Component: Return,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.GUEST} requiredPageBit={PAGE_PERMISSIONS.RETURN}>
+                <Return />
+              </ProtectedRoute>
+            ),
           }
         ],
       },
@@ -46,23 +59,43 @@ const routes = [
         children: [
           {
             path: "addUser",
-            Component: addUser,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.USER_MANAGEMENT}>
+                <AddUser />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "genReport",
-            Component: genReport,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.REPORT}>
+                <GenReport />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "manageCampus",
-            Component: manageCampus,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.CAMPUS_MANAGEMENT}>
+                <ManageCampus />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "manageRoom",
-            Component: manageRoom,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.ROOM_MANAGEMENT}>
+                <ManageRoom />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "manageItem",
-            Component: manageItem,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.ITEM_MANAGEMENT}>
+                <ManageItem />
+              </ProtectedRoute>
+            ),
           }
         ],
       },
@@ -71,26 +104,42 @@ const routes = [
         children: [
           {
             path: "connectRFID",
-            Component: connectRFID,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.GUEST} requiredPageBit={PAGE_PERMISSIONS.RFID}>
+                <ConnectRFID />
+              </ProtectedRoute>
+            ),
           },
           {
             path: "downloadVer",
-            Component: downloadVer,
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.GUEST} requiredPageBit={0}>
+                <DownloadVer />
+              </ProtectedRoute>
+            ),
           },
           {
             path:"rfidTest",
-            
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.GUEST} requiredPageBit={PAGE_PERMISSIONS.RFID}>
+                {/* Component for RFID test page */}
+              </ProtectedRoute>
+            ),
           }
         ],
       },{
         path:"userInfo",
-        Component: UserInfo,
+        element: (
+          <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.USER_INFO}>
+            <UserInfo />
+          </ProtectedRoute>
+        ),
       }
     ],
   },
   {
-      path:"login",
-      Component: Login,
+    path:"login",
+    Component: Login,
   }
 ];
 

@@ -1,12 +1,43 @@
 import React, { useEffect, useState } from "react";
-import { Col, Row, Card, Table } from "antd";
+import { Col, Row, Card, Table, Tag } from "antd";
 import "./home.css";
 import userImg from "../../assets/images/cat.png";
-import { getData } from "../../api/index";
-import * as echarts from "echarts";
+import { systemService, assetService } from "../../api";
+import { useAuth } from "../../context/AuthContext";
 
 const Home = () => {
   const [tableData, setTableData] = useState([]);
+  const [userInfo, setUserInfo] = useState({});
+  const [pendingItems, setPendingItems] = useState([]);
+
+  // Function to get the access level name from numeric value
+  const getAccessLevelName = (level) => {
+    switch (level) {
+      case 0: return "Administrator";
+      case 10000: return "Guest";
+      case 1000: return "Student";
+      case 100: return "Teacher/Technician";
+      default: return "Unknown";
+    }
+  };
+  const getAccessPageNames = (pageBitmask) => {
+    if (!pageBitmask) return [];
+    
+    const pagePermissions = [
+      { bit: 1, name: "Home" },
+      { bit: 2, name: "Borrow" },
+      { bit: 4, name: "Return" },
+      { bit: 8, name: "User Management" },
+      { bit: 16, name: "Campus Management" },
+      { bit: 32, name: "Room Management" },
+      { bit: 64, name: "Item Management" },
+      { bit: 128, name: "Reports" },
+      { bit: 256, name: "RFID" },
+      { bit: 512, name: "User Info" }
+    ];
+    
+    return pagePermissions.filter(page => (pageBitmask & page.bit) === page.bit).map(page => page.name);
+  };
 
   // Column configuration
   const columns = [
@@ -20,123 +51,135 @@ const Home = () => {
     { title: 'Unique ID', dataIndex: 'uniqueId', key: 'uniqueId', width: 150 },
   ];
 
+  // Get authentication state from context
+  const { getUserInfo, getAccessLevel, getAccessPage } = useAuth();
+  
   useEffect(() => {
+    // Get user info from AuthContext instead of localStorage
+    const storedUserInfo = getUserInfo() || {};
+    setUserInfo(storedUserInfo);
+    
     const fetchData = async () => {
       try {
-        const res = await getData();
-        setTableData(res.data.data.detailedAssetTableData);
+        // Try to fetch system data for the table
+        try {
+          const res = await systemService.getData();
+          if (res && res.data && res.data.data && res.data.data.detailedAssetTableData) {
+            setTableData(res.data.data.detailedAssetTableData);
+          }
+        } catch (tableError) {
+          console.warn("Unable to fetch table data:", tableError);
+          // Continue execution even if table data fetch fails
+        }
+        
+        // Try to fetch home data including pending items
+        try {
+          const homeData = await assetService.getHomeData();
+          console.log("Home data received:", homeData);
+          
+          // Update user info if needed
+          if (homeData && (homeData.lastLoginTime || homeData.lastLoginPlace)) {
+            const updatedInfo = {...storedUserInfo};
+            if (homeData.lastLoginTime) updatedInfo.lastLoginTime = homeData.lastLoginTime;
+            if (homeData.lastLoginPlace) updatedInfo.lastLoginIp = homeData.lastLoginPlace;
+            setUserInfo(updatedInfo);
+          }
+          
+          // Set pending confirmation items
+          if (homeData && homeData.pendingConfirmItem && Array.isArray(homeData.pendingConfirmItem)) {
+            setPendingItems(homeData.pendingConfirmItem);
+            console.log("Pending confirmation items:", homeData.pendingConfirmItem);
+          }
+        } catch (homeError) {
+          console.warn("Unable to fetch home data:", homeError);
+        }
       } catch (error) {
         console.error("Fetch data error:", error);
       }
     };
-    fetchData();
-
-    // Initialize chart
-    const chartDom = document.getElementById('main');
-    const myChart = echarts.init(chartDom);
-    
-    // Chart configuration
-    const option = {
-      title: { 
-        text: 'Those students not return items on time',
-        left: 'center',
-        textStyle: {
-          fontSize: 16
-        }
-      },
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' }
-      },
-      grid: {
-        top: '20%',
-        bottom: '15%',
-        containLabel: true
-      },
-      xAxis: { 
-        type: 'category',
-        data: ['Ken Lau 1', 'Ken Lau 2', 'Ken Lau 3', 'Ken Lau 4', 'Ken Lau 5', 'Ken Lau 6'],
-        axisLabel: {
-          rotate: 45,
-          interval: 0
-        }
-      },
-      yAxis: { 
-        type: 'value',
-        axisLabel: {
-          margin: 10
-        }
-      },
-      series: [{
-        data: [5, 20, 36, 10, 10, 20],
-        type: 'bar',
-        barWidth: '60%',
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#83bff6' },
-            { offset: 0.5, color: '#188df0' },
-            { offset: 1, color: '#188df0' }
-          ])
-        }
-      }]
-    };
-
-    myChart.setOption(option);
-
-      // 在佈局完成後呼叫 resize
-      setTimeout(() => {
-        myChart.resize();
-      }, 100);
-
-    const resizeHandler = () => myChart.resize();
-    window.addEventListener('resize', resizeHandler);
-
-    return () => window.removeEventListener('resize', resizeHandler);
+    // Add a short delay before making API calls to ensure backend session is ready
+    setTimeout(() => {
+      console.log('Initiating API calls after delay');
+      fetchData();
+    }, 1000); // 500ms delay
   }, []);
+
+  // Get current access information from AuthContext
+  const accessLevel = getAccessLevel();
+  const accessPage = getAccessPage();
+  const accessPageList = getAccessPageNames(accessPage);
 
   return (
     <div className="home-container">
       <Row gutter={[16, 16]}>
-        {/* Left Column */}
-        <Col xs={24} md={8}>
+        <Col xs={24}>
           <Card className="user-card">
             <div className="user-profile">
               <img src={userImg} alt="user" className="user-avatar" />
               <div className="user-info">
-                <h3 className="user-name">Admin</h3>
-                <p className="user-role">Administrator</p>
+                <h3 className="user-name">{userInfo.firstName} {userInfo.lastName || ''}</h3>
+                <p className="user-role">{getAccessLevelName(accessLevel)}</p>
               </div>
             </div>
             
             <div className="login-info">
               <p className="info-item">
                 <span className="info-label">Last Login Time:</span>
-                <span className="info-value">2025-01-01 12:00:00</span>
+                <span className="info-value">{userInfo.lastLoginTime || 'N/A'}</span>
               </p>
               <p className="info-item">
-                <span className="info-label">Last Login Place:</span>
-                <span className="info-value">Hong Kong</span>
+                <span className="info-label">Last Login IP:</span>
+                <span className="info-value">{userInfo.lastLoginIp || 'N/A'}</span>
               </p>
+              <p className="info-item">
+                <span className="info-label">Access Level:</span>
+                <span className="info-value">{accessLevel} - {getAccessLevelName(accessLevel)}</span>
+              </p>
+              <div className="info-item">
+                <span className="info-label">Access Permissions:</span>
+                <div className="info-value access-tags">
+                  {accessPageList.map(page => (
+                    <Tag color="blue" key={page}>{page}</Tag>
+                  ))}
+                  {accessPageList.length === 0 && <span>No permissions assigned</span>}
+                </div>
+              </div>
             </div>
           </Card>
-
-          <Card className="table-card">
-            <Table
-              columns={columns}
-              dataSource={tableData}
-              scroll={{ x: 800, y: 300 }}
-              pagination={false}
-              rowKey="uniqueId"
-              bordered
-              size="middle"
-            />
-          </Card>
-        </Col>
-
-        {/* Right Column */}
-        <Col xs={24} md={16}>
-          <Card className="chart-card">
-            <div id="main" style={{ width: '100%', height: '600px' }} />
+          {/* Debug information */}
+          <div style={{ display: 'none' }}>
+            Debug: pendingItems.length = {pendingItems.length}
+            First item: {pendingItems.length > 0 ? JSON.stringify(pendingItems[0]) : 'none'}
+          </div>
+          
+          {/* Always render the card but conditionally show a message when no items */}
+          <Card 
+            className="pending-card" 
+            style={{ marginTop: '16px' }} 
+            title="Pending Confirmation Items"
+          >
+            {pendingItems && pendingItems.length > 0 ? (
+              <Table
+                columns={[
+                  { title: 'Device ID', dataIndex: 'deviceID', key: 'deviceID' },
+                  { title: 'Device Name', dataIndex: 'deviceName', key: 'deviceName' },
+                  { title: 'Price', dataIndex: 'price', key: 'price', render: text => text ? `$${Number(text).toFixed(2)}` : 'N/A' },
+                  { title: 'Order Date', dataIndex: 'orderDate', key: 'orderDate' },
+                  { title: 'Room ID', dataIndex: 'roomID', key: 'roomID' },
+                  { title: 'State', dataIndex: 'state', key: 'state' },
+                  { title: 'Remark', dataIndex: 'remark', key: 'remark' }
+                ]}
+                dataSource={pendingItems}
+                rowKey="deviceID"
+                pagination={false}
+                bordered
+                size="small"
+              />
+            ) : (
+              <div className="no-data-message" style={{ textAlign: 'center', padding: '20px' }}>
+                No pending items to display
+              </div>
+            )}
           </Card>
         </Col>
       </Row>
