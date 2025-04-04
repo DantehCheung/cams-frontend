@@ -9,7 +9,7 @@ export const getHomeData = async () => {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
     
     // Send token in the request body as JSON (for backward compatibility with current backend)
-    const response = await axiosInstance.get('/api/gethome', {
+    const response = await axiosInstance.post('/api/gethome', {
       token: token
     });
     
@@ -44,5 +44,48 @@ export const getCampusData = async () => {
     return response.data;
   } catch(error) {
     console.error('Get campus data error:', error);
+  }
+}
+
+export const addCampus = async (campusName, campusShortName) => {
+  try {
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    const response = await axiosInstance.post('/api/addcampus', {
+      campusName: campusName,
+      campusShortName: campusShortName,
+      token: token
+    });
+    
+    console.log('API response from addCampus:', response.data);
+    
+    if (response.data && !response.data.errorCode) {
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: response.data };
+  } catch(error) {
+    console.error('Add campus error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export const editCampus = async (campusId, campusName, campusShortName) => {
+  try {
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    const response = await axiosInstance.post('/api/editcampus', {
+      campusID: campusId,
+      campusName: campusName,
+      campusShortName: campusShortName,
+      token: token
+    });
+    
+    console.log('API response from editCampus:', response.data);
+    
+    if (response.data && !response.data.errorCode) {
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: response.data };
+  } catch(error) {
+    console.error('Edit campus error:', error);
+    return { success: false, error: error.message };
   }
 }

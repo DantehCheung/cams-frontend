@@ -36,12 +36,12 @@ const ManageCampus = () => {
         } else {
           // Fallback to initialCampuses if API response format is unexpected
           console.warn('Unexpected API response format:', response);
-          setCampuses(initialCampuses);
+
         }
       } catch (error) {
         console.error('Failed to fetch campus data:', error);
         message.error('Failed to load campus data');
-        setCampuses(initialCampuses); // Use initial data as fallback
+        setCampuses([]); // Set empty array if fetch fails
       } finally {
         setLoading(false);
       }
@@ -79,25 +79,70 @@ const ManageCampus = () => {
   const handleOk = () => {
     form.validateFields().then(async (values) => {
       try {
-        // Here you would typically call an API to save the changes
-        // const saveResponse = await assetService.saveCampus(values);
-        
-        // For now, we'll just update the local state
         if (editingCampus) {
-          setCampuses(campuses.map((campus) => 
-            campus.key === editingCampus.key ? { ...campus, ...values } : campus
-          ));
-          message.success('Campus updated successfully');
+          // Call API to edit existing campus
+          const campusId = editingCampus.key;
+          const campusName = values.fullName;
+          const campusShortName = values.shortName;
+          
+          console.log('Editing campus:', { campusId, campusName, campusShortName });
+          const response = await assetService.editCampus(campusId, campusName, campusShortName);
+          
+          if (response.success) {
+            // Refresh the campus list to get the updated data
+            const refreshResponse = await assetService.getCampusData();
+            if (refreshResponse && Array.isArray(refreshResponse.c)) {
+              const formattedCampuses = refreshResponse.c.map(campus => ({
+                key: campus.campusId.toString(),
+                fullName: campus.campusName,
+                shortName: campus.campusShortName
+              }));
+              setCampuses(formattedCampuses);
+            } else {
+              // If refresh fails, just update locally
+              setCampuses(campuses.map((campus) => 
+                campus.key === editingCampus.key ? { ...campus, ...values } : campus
+              ));
+            }
+            message.success('Campus updated successfully');
+          } else {
+            message.error(`Failed to update campus: ${response.error?.description || 'Unknown error'}`);
+            return; // Don't close modal or reset form if there was an error
+          }
         } else {
-          setCampuses([...campuses, { ...values, key: Date.now().toString() }]);
-          message.success('Campus added successfully');
+          // Call the API to add a new campus
+          const campusName = values.fullName;
+          const campusShortName = values.shortName;
+          
+          console.log('Adding new campus:', { campusName, campusShortName });
+          const response = await assetService.addCampus(campusName, campusShortName);
+          
+          if (response.success) {
+            // Refresh the campus list to get the updated data with correct IDs from backend
+            const refreshResponse = await assetService.getCampusData();
+            if (refreshResponse && Array.isArray(refreshResponse.c)) {
+              const formattedCampuses = refreshResponse.c.map(campus => ({
+                key: campus.campusId.toString(),
+                fullName: campus.campusName,
+                shortName: campus.campusShortName
+              }));
+              setCampuses(formattedCampuses);
+            } else {
+              // If refresh fails, just add locally with temporary key
+              setCampuses([...campuses, { ...values, key: Date.now().toString() }]);
+            }
+            message.success('Campus added successfully');
+          } else {
+            message.error(`Failed to add campus: ${response.error?.description || 'Unknown error'}`);
+            return; // Don't close modal or reset form if there was an error
+          }
         }
         
         setIsModalVisible(false);
         form.resetFields();
       } catch (error) {
         console.error('Failed to save campus:', error);
-        message.error('Failed to save campus');
+        message.error(`Failed to save campus: ${error.message}`);
       }
     }).catch((info) => {
       console.log('Validate Failed:', info);
