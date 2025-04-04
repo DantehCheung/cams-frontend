@@ -149,7 +149,25 @@ export const AuthProvider = ({ children }) => {
 
   const hasPagePermission = (pagePermission) => {
     if (!authState.isAuthenticated) return false;
-    return (authState.accessPage & pagePermission) !== 0;
+    
+    // For debugging
+    const hasPermission = (authState.accessPage & pagePermission) !== 0;
+    console.log(`Page Permission Check: Required=${pagePermission}, User=${authState.accessPage}, Result=${hasPermission}`);
+    
+    // For teachers, grant access to campus, room, and item management
+    if (authState.accessLevel <= ACCESS_LEVELS.TEACHER) {
+      const managementPermissions = 
+        PAGE_PERMISSIONS.CAMPUS_MANAGEMENT | 
+        PAGE_PERMISSIONS.ROOM_MANAGEMENT | 
+        PAGE_PERMISSIONS.ITEM_MANAGEMENT;
+      
+      if ((pagePermission & managementPermissions) !== 0) {
+        console.log('Teacher override for management pages granted');
+        return true;
+      }
+    }
+    
+    return hasPermission;
   };
 
   const hasPermission = (requiredLevel, requiredPageBit = 0) => {

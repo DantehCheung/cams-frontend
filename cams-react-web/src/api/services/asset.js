@@ -24,20 +24,25 @@ export const getHomeData = async () => {
     console.error('Get home data error:', error);
     // Return mock data instead of throwing error
     console.log('Using mock data for home since API endpoint is not available');
-    return {
-      LastLoginTime: new Date().toISOString(),
-      LastLoginPlace: '127.0.0.1',
-      PendingConfirmItem: [
-        {
-          deviceID: 1001,
-          deviceName: 'Sample Laptop',
-          price: 1299.99,
-          orderDate: '2025-01-15',
-          roomID: 101,
-          state: 'P',
-          remark: 'Pending approval'
-        }
-      ]
-    };
+
+  }
+}
+
+export const getCampusData = async () => {
+  try {
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    const response = await axiosInstance.post('/api/getcampus', {
+      token: token
+    });
+    
+    // Log the response for debugging
+    console.log('API response from getCampusData:', response.data);
+    
+    if (response.data && !response.data.errorCode) {
+      return response.data;
+    }
+    return response.data;
+  } catch(error) {
+    console.error('Get campus data error:', error);
   }
 }
