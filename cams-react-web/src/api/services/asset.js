@@ -9,7 +9,7 @@ export const getHomeData = async () => {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
     
     // Send token in the request body as JSON (for backward compatibility with current backend)
-    const response = await axiosInstance.post('/api/gethome', {
+    const response = await axiosInstance.post('gethome', {
       token: token
     });
     
@@ -31,7 +31,7 @@ export const getHomeData = async () => {
 export const getCampusData = async () => {
   try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-    const response = await axiosInstance.post('/api/getcampus', {
+    const response = await axiosInstance.post('getcampus', {
       token: token
     });
     
@@ -50,7 +50,7 @@ export const getCampusData = async () => {
 export const addCampus = async (campusName, campusShortName) => {
   try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-    const response = await axiosInstance.post('/api/addcampus', {
+    const response = await axiosInstance.post('addcampus', {
       campusName: campusName,
       campusShortName: campusShortName,
       token: token
@@ -71,7 +71,7 @@ export const addCampus = async (campusName, campusShortName) => {
 export const editCampus = async (campusId, campusName, campusShortName) => {
   try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-    const response = await axiosInstance.post('/api/editcampus', {
+    const response = await axiosInstance.post('editcampus', {
       campusID: campusId,
       campusName: campusName,
       campusShortName: campusShortName,

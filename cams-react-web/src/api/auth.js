@@ -4,7 +4,7 @@ import { PAGE_PERMISSIONS, ACCESS_LEVELS } from './index';
 // 現有功能
 export const login = async (credentials) => {
   try {
-    const response = await axiosInstance.post('/api/loginbypw', credentials);
+    const response = await axiosInstance.post('loginbypw', credentials);
     if (response.data && !response.data.errorCode) {
       // 登入成功，儲存權限資訊
       if (response.data.token) {
@@ -31,7 +31,7 @@ export const login = async (credentials) => {
 
 
 export const refreshToken = async () => {
-  const response = await axiosInstance.post('/api/refresh-token');
+  const response = await axiosInstance.post('refresh-token');
   return response.data;
 };
 
@@ -42,7 +42,7 @@ export const logout = () => {
   localStorage.removeItem('accessLevel');
   localStorage.removeItem('accessPage');
   localStorage.removeItem('pendingConfirm');
-  return axiosInstance.post('/api/logout');
+  return axiosInstance.post('logout');
 };
 
 // 新增的權限控制功能

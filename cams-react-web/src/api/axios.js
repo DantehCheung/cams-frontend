@@ -1,7 +1,7 @@
 // api/axios.js
 import axios from 'axios';
 
-const baseurl = window.location.href;
+const baseurl = `${window.location.origin.replace(':5173', ':8787')}`;
 
 
 // Create an Axios instance that directly connects to the SpringBoot backend
