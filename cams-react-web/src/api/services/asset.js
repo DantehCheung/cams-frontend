@@ -9,7 +9,7 @@ export const getHomeData = async () => {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
     
     // Send token in the request body as JSON (for backward compatibility with current backend)
-    const response = await axiosInstance.post('/api/gethome', {
+    const response = await axiosInstance.get('/api/gethome', {
       token: token
     });
     
