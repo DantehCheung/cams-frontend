@@ -1,12 +1,12 @@
 // api/axios.js
 import axios from 'axios';
 
-const baseurl = `${window.location.origin.replace(':5173', ':8787')}`;
+const baseurl = `${window.location.origin.replace(':5173', ':8787')}/api/`;
 
 
 // Create an Axios instance that directly connects to the SpringBoot backend
 const axiosInstance = axios.create({
-  baseURL: `${baseurl}:`,  // Direct connection to SpringBoot server
+  baseURL: `${baseurl}`,  // Direct connection to SpringBoot server
   timeout: 10000,
   withCredentials: true, // Enable cookies for secure auth
   headers: {

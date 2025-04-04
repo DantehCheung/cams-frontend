@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       // Configure to handle cookies
-      const response = await axiosInstance.post('/api/loginbypw', credentials, {
+      const response = await axiosInstance.post('loginbypw', credentials, {
         withCredentials: true, // Important for receiving HTTP-only cookies
       });
       
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
-      await axiosInstance.post('/api/logout', {}, {
+      await axiosInstance.post('logout', {}, {
         withCredentials: true, // Important for cookies
       });
     } catch (error) {
