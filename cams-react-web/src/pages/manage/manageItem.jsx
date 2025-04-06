@@ -22,10 +22,18 @@ const ManageItem = () => {
   const [manualDeviceIdModalVisible, setManualDeviceIdModalVisible] = useState(false);
   const [manualDeviceId, setManualDeviceId] = useState('');
   const [pendingUploads, setPendingUploads] = useState(null);
+  const [deviceCreated, setDeviceCreated] = useState(false);
+  const [createdDeviceId, setCreatedDeviceId] = useState(null);
+  const [fileUploadEnabled, setFileUploadEnabled] = useState(false);
+  const [uploadInProgress, setUploadInProgress] = useState(false);
 
   const showAddModal = () => {
     setEditingItem(null);
     form.resetFields();
+    setDeviceCreated(false);
+    setCreatedDeviceId(null);
+    setFileUploadEnabled(false);
+    setFileList([]);
     setIsModalVisible(true);
   };
 
@@ -49,8 +57,37 @@ const ManageItem = () => {
     });
   };
 
+  // Handle confirmation of device creation before proceeding to file upload
+  const handleConfirmDevice = async () => {
+    if (!createdDeviceId) {
+      message.error('No device ID available');
+      return;
+    }
+    
+    setFileUploadEnabled(true);
+    message.success('You can now upload files for this device. Drag files to the upload area.');
+  };
+
   const handleOk = async () => {
     try {
+      // If device has been created and we're in file upload mode, handle file submissions
+      if (deviceCreated && fileUploadEnabled) {
+        if (fileList.length > 0) {
+          setUploadInProgress(true);
+          await uploadFilesForDevice(createdDeviceId, fileList);
+          setUploadInProgress(false);
+        }
+        // Close the modal and reset states
+        setIsModalVisible(false);
+        setDeviceCreated(false);
+        setCreatedDeviceId(null);
+        setFileUploadEnabled(false);
+        setFileList([]);
+        form.resetFields();
+        return;
+      }
+      
+      // Otherwise, this is the initial device creation step
       const values = await form.validateFields();
       setLoading(true);
       
@@ -164,9 +201,12 @@ const ManageItem = () => {
           // Check if deviceId exists in the response
           let deviceId = response.data.deviceId;
           
-          // If deviceId is 'pending' or missing, it means we have a partial success situation
-          if (!deviceId || deviceId === 'pending') {
-            message.warning('Device created but could not retrieve device ID. Document uploads will not be processed.');
+          // Save the created device ID and set device created state
+          if (deviceId && deviceId !== 'pending') {
+            setDeviceCreated(true);
+            setCreatedDeviceId(deviceId);
+            message.success(`Device created successfully with ID: ${deviceId}. Click 'Confirm' to proceed to file upload.`);
+          } else {
             
             // Try to fetch the latest device for this room as a fallback
             try {
@@ -227,20 +267,8 @@ const ManageItem = () => {
             }
           }
           
-          // Now attempt file uploads if we have a valid deviceId
-          if (deviceId && deviceId !== 'pending' && fileList.length > 0) {
-            message.info(`Uploading documents for device ID: ${deviceId}...`);
-            await uploadFilesForDevice(deviceId, fileList);
-          } else if (fileList.length > 0) {
-            // Store the files for later upload with manual ID
-            setPendingUploads([...fileList]);
-            message.warning('Device created successfully, but we could not determine the device ID for file uploads.');
-            // Show modal for manual device ID entry
-            setManualDeviceIdModalVisible(true);
-          }
-          
           // If the current selected room matches the added device's room, update the UI
-          if (selectedRoom === values.roomId) {
+          if (selectedRoom === values.roomId && deviceId) {
             const newItem = {
               key: String(deviceId),
               deviceId: deviceId,
@@ -255,12 +283,6 @@ const ManageItem = () => {
             };
             setItems([...items, newItem]);
           }
-          
-          message.success('Device added successfully');
-          setIsModalVisible(false);
-          setFileList([]);
-          setDeviceParts([{ id: Date.now(), name: '' }]);
-          form.resetFields();
         } else {
           message.error(`Failed to add device: ${response.error?.description || 'Unknown error'}`);
         }
@@ -282,6 +304,9 @@ const ManageItem = () => {
     form.resetFields();
     setFileList([]);
     setDeviceParts([{ id: Date.now(), name: '' }]);
+    setDeviceCreated(false);
+    setCreatedDeviceId(null);
+    setFileUploadEnabled(false);
   };
   
   // Helper function to upload files for a specific device ID
@@ -294,53 +319,41 @@ const ManageItem = () => {
       message.info(`Uploading documents for device ID: ${deviceId}...`);
       console.log(`Attempting to upload ${files.length} files for device ID: ${deviceId}`);
       
-      const uploadPromises = files.map(file => {
+      // Process files one by one sequentially for better control and feedback
+      for (const file of files) {
         if (!file.originFileObj) {
           console.warn('File missing originFileObj:', file);
-          return Promise.resolve({ success: false, error: 'No file object' });
+          continue;
         }
         
         console.log(`Uploading file ${file.name} for device ID: ${deviceId}`);
-        return assetService.uploadDeviceDoc(file.originFileObj, deviceId)
-          .then(result => {
-            console.log(`Upload result for ${file.name}:`, result);
-            if (result.success) {
-              message.success(`File ${file.name} uploaded successfully`);
+        try {
+          const result = await assetService.uploadDeviceDoc(file.originFileObj, deviceId);
+          console.log(`Upload result for ${file.name}:`, result);
+          
+          if (result.success) {
+            message.success(`File ${file.name} uploaded successfully`);
+          } else {
+            // Check for specific backend path error
+            if (result.error && typeof result.error === 'string' && result.error.includes('Path is not exit')) {
+              message.error(`Backend storage error: The server directory for storing files doesn't exist. Please contact the administrator.`);
+            } else if (result.error && typeof result.error === 'string' && result.error.includes('Backend server storage error')) {
+              message.error(result.error);
             } else {
-              // Check for specific backend path error
-              if (result.error && typeof result.error === 'string' && result.error.includes('Path is not exit')) {
-                // Show a more specific error message for the backend directory issue
-                message.error(`Backend storage error: The server directory for storing files doesn't exist. Please contact the administrator.`);
-              } else if (result.error && typeof result.error === 'string' && result.error.includes('Backend server storage error')) {
-                // The detailed error from our improved asset.js handler
-                message.error(result.error);
-              } else {
-                // Generic error fallback
-                message.error(`Failed to upload file ${file.name}: ${result.error || 'Unknown error'}`);
-              }
+              message.error(`Failed to upload file ${file.name}: ${result.error || 'Unknown error'}`);
             }
-            return result;
-          });
-      });
-      
-      const results = await Promise.all(uploadPromises);
-      
-      // Check if any uploads failed due to path errors
-      const pathErrors = results.filter(r => 
-        !r.success && r.error && typeof r.error === 'string' && (
-          r.error.includes('Path is not exit') || 
-          r.error.includes('Backend server storage error')
-        )
-      );
-      
-      if (pathErrors.length > 0) {
-        console.warn('Files were not uploaded due to backend path configuration issues. Device was created successfully, but you will need to upload files later when the backend is fixed.');
+          }
+        } catch (singleUploadError) {
+          console.error(`Error uploading file ${file.name}:`, singleUploadError);
+          message.error(`Failed to upload ${file.name}: ${singleUploadError.message}`);
+        }
       }
       
+      message.success('File upload process completed');
       return true;
     } catch (uploadError) {
-      console.error('Error uploading files:', uploadError);
-      message.error('Some files could not be uploaded, but the device was created successfully');
+      console.error('Error in file upload process:', uploadError);
+      message.error('There was an error during the file upload process');
       return false;
     }
   };
@@ -749,19 +762,16 @@ const ManageItem = () => {
             loading={loading}
             disabled={!selectedCampus}
           >
-            {rooms.map(room => (
+            {rooms.map((room) => (
               <Select.Option key={room.key} value={room.roomId.toString()}>
                 {room.roomNumber} - {room.name}
               </Select.Option>
             ))}
           </Select>
           <Button type="primary" onClick={handleSort}>
-                      Select
-                    </Button>
-
-         
-     
-           <Button type="primary" onClick={showAddModal}>
+            Select
+          </Button>
+          <Button type="primary" onClick={showAddModal}>
             Add Item
           </Button>
         </Space>
@@ -772,25 +782,31 @@ const ManageItem = () => {
         ) : (
           <Table
             columns={columns}
-            dataSource={filteredItems}
+            dataSource={items}
             pagination={{ pageSize: 5 }}
             expandable={{
-              expandedRowRender: record => (
+              expandedRowRender: (record) => (
                 <div style={{ margin: 0 }}>
-                  <p><strong>Remark:</strong> {record.remark || 'No remarks'}</p>
-                  <p><strong>Order Date:</strong> {record.orderDate}</p>
-                  <p><strong>Arrival Date:</strong> {record.arriveDate}</p>
+                  <p>
+                    <strong>Remark:</strong> {record.remark || 'No remarks'}
+                  </p>
+                  <p>
+                    <strong>Order Date:</strong> {record.orderDate}
+                  </p>
+                  <p>
+                    <strong>Arrival Date:</strong> {record.arriveDate}
+                  </p>
                   <div>
                     <strong>Parts & RFIDs:</strong>
                     {record.parts && record.parts.length > 0 ? (
-                      <Table 
-                        dataSource={record.parts.map(part => {
+                      <Table
+                        dataSource={record.parts.map((part) => {
                           // Log the part for debugging
                           console.log('Processing part for display:', part);
                           
                           // Find matching RFID for this part - handle exact API structure
-                          const rfid = record.rfids?.find(r => 
-                            r.devicePartID === part.devicePartID && 
+                          const rfid = record.rfids?.find((r) =>
+                            r.devicePartID === part.devicePartID &&
                             r.deviceID === part.deviceID
                           );
                           
@@ -798,12 +814,12 @@ const ManageItem = () => {
                           return {
                             key: `${part.deviceID}-${part.devicePartID}`, // Ensure unique key
                             name: part.devicePartName,
-                            rfid: rfid ? rfid.rfid : 'No RFID'
+                            rfid: rfid ? rfid.rfid : 'No RFID',
                           };
                         })}
                         columns={[
                           { title: 'Part Name', dataIndex: 'name', key: 'part-name-col' },
-                          { title: 'RFID', dataIndex: 'rfid', key: 'rfid-col' }
+                          { title: 'RFID', dataIndex: 'rfid', key: 'rfid-col' },
                         ]}
                         pagination={false}
                         size="small"
@@ -814,7 +830,7 @@ const ManageItem = () => {
                   </div>
                 </div>
               ),
-              rowExpandable: record => true,
+              rowExpandable: (record) => true,
             }}
           />
         )}
@@ -840,7 +856,7 @@ const ManageItem = () => {
               }}
               disabled={editingItem}
             >
-              {campuses.map(campus => (
+              {campuses.map((campus) => (
                 <Select.Option key={campus.key} value={campus.key}>
                   {campus.shortName}
                 </Select.Option>
@@ -856,7 +872,7 @@ const ManageItem = () => {
               style={{ width: '100%' }}
               loading={loading}
             >
-              {rooms.map(room => (
+              {rooms.map((room) => (
                 <Select.Option key={room.key} value={room.roomId.toString()}>
                   {room.roomNumber} - {room.name}
                 </Select.Option>
@@ -970,26 +986,59 @@ const ManageItem = () => {
             Add Part
           </Button>
           
-          <Divider orientation="left">Document Upload</Divider>
-          
-          <Upload.Dragger
-            name="files"
-            fileList={fileList}
-            onChange={handleFileChange}
-            beforeUpload={() => false} // Prevent auto upload
-            multiple
-          >
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined />
-            </p>
-            <p className="ant-upload-text">
-              Click or drag file to this area to upload
-            </p>
-            <p className="ant-upload-hint">
-              Support for PDF, Word, Excel, and image files
-            </p>
-          </Upload.Dragger>
+          <Form.Item label="Upload Documents" name="files">
+            <Upload.Dragger
+              name="files"
+              multiple={true}
+              fileList={fileList}
+              beforeUpload={() => false} // Prevent auto upload
+              onChange={handleFileChange}
+              disabled={!fileUploadEnabled || uploadInProgress}
+            >
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              {fileUploadEnabled ? (
+                <>
+                  <p className="ant-upload-text">Click or drag file to this area to upload</p>
+                  <p className="ant-upload-hint">
+                    Files will be uploaded for device ID: {createdDeviceId}
+                  </p>
+                </>
+              ) : deviceCreated ? (
+                <p className="ant-upload-text">Please click 'Confirm' to enable file upload</p>
+              ) : (
+                <>
+                  <p className="ant-upload-text">First create the device, then upload files</p>
+                  <p className="ant-upload-hint">
+                    Upload will be enabled after device creation
+                  </p>
+                </>
+              )}
+            </Upload.Dragger>
+          </Form.Item>
         </Form>
+        <Form.Item>
+          {deviceCreated ? (
+            <>
+              <Button type="primary" onClick={handleConfirmDevice} disabled={fileUploadEnabled}>
+                Confirm
+              </Button>
+              {fileUploadEnabled && (
+                <Button type="primary" onClick={handleOk} loading={uploadInProgress} style={{ marginLeft: 8 }}>
+                  Finish & Upload Files
+                </Button>
+              )}
+            </>
+          ) : (
+            <Button type="primary" onClick={handleOk} loading={loading}>
+              {editingItem ? "Update" : "Add"}
+            </Button>
+          )}
+          <Button onClick={handleCancel} style={{ marginLeft: 8 }}>
+            Cancel
+          </Button>
+        </Form.Item>
       </Modal>
       
       {/* Manual Device ID Input Modal */}
