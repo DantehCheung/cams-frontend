@@ -1,9 +1,10 @@
-import React, { useState } from "react";
-import { Card, Form, Input, Button, Table, Space, Modal, Typography, Upload, message,Select } from "antd";
-import { InboxOutlined } from "@ant-design/icons";
+import React, { useState, useEffect } from "react";
+import { Card, Form, Input, Button, Table, Space, Modal, Typography, Upload, message, Select, Spin, Tag, DatePicker, Divider, Popconfirm } from "antd";
+import { InboxOutlined, PlusOutlined, DeleteOutlined, FilePdfOutlined, FileImageOutlined, FileUnknownOutlined } from "@ant-design/icons";
+import { assetService } from "../../api";
 
 const { Title } = Typography;
-const { Search } = Input;
+
 
 const ManageItem = () => {
   const [items, setItems] = useState([]);
@@ -13,6 +14,14 @@ const ManageItem = () => {
   const [form] = Form.useForm();
   const [selectedCampus, setSelectedCampus] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [campuses, setCampuses] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fileList, setFileList] = useState([]);
+  const [deviceParts, setDeviceParts] = useState([{ id: Date.now(), name: '' }]);
+  const [manualDeviceIdModalVisible, setManualDeviceIdModalVisible] = useState(false);
+  const [manualDeviceId, setManualDeviceId] = useState('');
+  const [pendingUploads, setPendingUploads] = useState(null);
 
   const showAddModal = () => {
     setEditingItem(null);
@@ -40,41 +49,562 @@ const ManageItem = () => {
     });
   };
 
-  const handleOk = () => {
-    form.validateFields().then((values) => {
+  const handleOk = async () => {
+    try {
+      const values = await form.validateFields();
+      setLoading(true);
+      
+      // Collect device parts data
+      const formattedParts = deviceParts
+        .filter(part => part.name.trim()) // Only include parts with names
+        .map(part => ({
+          devicePartName: part.name.trim(),
+          deviceRFID: []
+        }));
+      
+      // Format dates
+      const orderDate = values.orderDate ? values.orderDate.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
+      const arriveDate = values.arriveDate ? values.arriveDate.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
+      const maintenanceDate = values.maintenanceDate ? values.maintenanceDate.format('YYYY-MM-DD') : null;
+      
       if (editingItem) {
-        setItems(
-          items.map((item) =>
-            item.key === editingItem.key ? { ...item, ...values } : item
-          )
-        );
+        // Handle update device
+        const deviceData = {
+          deviceName: values.name,
+          roomID: values.roomId,
+          price: values.price || 0,
+          orderDate: orderDate,
+          arriveDate: arriveDate,
+          maintenanceDate: maintenanceDate,
+          state: values.state || 'A',
+          remark: values.remark || '',
+          deviceID: editingItem.deviceId
+        };
+        
+        const response = await assetService.updateDevice(deviceData);
+        
+        if (response.success) {
+          // If there are files to upload, upload them
+          if (fileList.length > 0) {
+            message.info('Uploading documents...');
+            
+            // Use the known device ID from the editing item
+            const deviceId = editingItem.deviceId;
+            console.log(`Uploading documents for device ID: ${deviceId}`);
+            
+            const uploadPromises = fileList
+              .filter(file => file.originFileObj) // Only include newly added files
+              .map(file => {
+                console.log(`Preparing to upload file ${file.name} for device ID: ${deviceId}`);
+                return assetService.uploadDeviceDoc(file.originFileObj, deviceId)
+                  .then(result => {
+                    console.log(`Upload result for ${file.name}:`, result);
+                    if (result.success) {
+                      message.success(`File ${file.name} uploaded successfully`);
+                    } else {
+                      message.error(`Failed to upload file ${file.name}: ${result.error || 'Unknown error'}`);
+                    }
+                    return result;
+                  });
+              });
+            
+            try {
+              await Promise.all(uploadPromises);
+            } catch (uploadError) {
+              console.error('Error uploading files:', uploadError);
+              message.error('Some files could not be uploaded');
+            }
+          }
+          
+          // Update item in local state
+          const updatedItems = items.map(item => 
+            item.key === editingItem.key ? {
+              ...item,
+              name: values.name,
+              state: values.state,
+              price: values.price,
+              remark: values.remark,
+              roomId: values.roomId,
+              maintenanceDate: maintenanceDate
+            } : item
+          );
+          setItems(updatedItems);
+          
+          message.success('Device updated successfully');
+          setIsModalVisible(false);
+          setFileList([]);
+          setDeviceParts([{ id: Date.now(), name: '' }]);
+          form.resetFields();
+        } else {
+          message.error(`Failed to update device: ${response.error?.description || 'Unknown error'}`);
+        }
       } else {
-        setItems([...items, { ...values, key: Date.now().toString() }]);
+        // Handle add device - prepare data for API call
+        const deviceData = {
+          deviceName: values.name,
+          roomID: values.roomId,
+          price: values.price || 0,
+          orderDate: orderDate,
+          arriveDate: arriveDate,
+          maintenanceDate: maintenanceDate,
+          state: values.state || 'A',
+          remark: values.remark || '',
+          deviceParts: formattedParts.length > 0 ? formattedParts : undefined
+        };
+        
+        console.log('Adding device with data:', deviceData);
+        
+        // Log the data being sent to ensure it's correctly formatted
+        console.log('Sending device data to API:', JSON.stringify(deviceData, null, 2));
+        
+        const response = await assetService.addDevice(deviceData);
+        console.log('Add device response:', JSON.stringify(response, null, 2));
+        
+        if (response.success && response.data) {
+          // Check if deviceId exists in the response
+          let deviceId = response.data.deviceId;
+          
+          // If deviceId is 'pending' or missing, it means we have a partial success situation
+          if (!deviceId || deviceId === 'pending') {
+            message.warning('Device created but could not retrieve device ID. Document uploads will not be processed.');
+            
+            // Try to fetch the latest device for this room as a fallback
+            try {
+              const latestDevicesResponse = await assetService.getItemsByRoom(values.roomId);
+              console.log('Latest devices:', latestDevicesResponse);
+              
+              // With our updated getItemsByRoom function, the data should now be an array of formatted devices
+              if (latestDevicesResponse.success && Array.isArray(latestDevicesResponse.data)) {
+                // Add additional logging to understand the data structure
+                console.log('Device list:', JSON.stringify(latestDevicesResponse.data, null, 2));
+                
+                // Check if we have any devices that match our just-created device properties
+                const matchingDevices = latestDevicesResponse.data.filter(device => 
+                  device.name === values.name && 
+                  device.state === (values.state || 'A') &&
+                  device.remark === (values.remark || '')
+                );
+                
+                if (matchingDevices.length > 0) {
+                  // Sort by ID to get the highest/newest one first
+                  matchingDevices.sort((a, b) => (parseInt(b.deviceId) || 0) - (parseInt(a.deviceId) || 0));
+                  deviceId = matchingDevices[0].deviceId;
+                  console.log('Found matching device ID:', deviceId);
+                  message.success('Found device ID through matching properties. Will attempt file uploads.');
+                } else {
+                  // If no matching device, take the device with the highest ID (most recently added)
+                  const sortedDevices = [...latestDevicesResponse.data].sort((a, b) => {
+                    return (parseInt(b.deviceId) || 0) - (parseInt(a.deviceId) || 0);
+                  });
+                  
+                  if (sortedDevices.length > 0 && sortedDevices[0].deviceId) {
+                    deviceId = sortedDevices[0].deviceId;
+                    console.log('Recovered device ID from latest devices:', deviceId);
+                    message.success('Found device ID by taking most recent device. Will attempt file uploads.');
+                  }
+                }
+              } else if (latestDevicesResponse.success && latestDevicesResponse.rawData && latestDevicesResponse.rawData.device) {
+                // Fallback to raw API response if our formatted data doesn't work
+                const deviceList = latestDevicesResponse.rawData.device;
+                console.log('Raw device list:', deviceList);
+                
+                if (Array.isArray(deviceList) && deviceList.length > 0) {
+                  // Sort devices by ID (descending)
+                  const sortedDevices = [...deviceList].sort((a, b) => {
+                    return (parseInt(b.deviceID) || 0) - (parseInt(a.deviceID) || 0);
+                  });
+                  
+                  if (sortedDevices.length > 0) {
+                    // Use deviceID from the API response (camel case differs from our normalized deviceId)
+                    deviceId = sortedDevices[0].deviceID;
+                    console.log('Recovered device ID from raw API response:', deviceId);
+                    message.success('Found device ID through API raw data. Will attempt file uploads.');
+                  }
+                }
+              }
+            } catch (fallbackError) {
+              console.error('Failed to get latest devices as fallback:', fallbackError);
+            }
+          }
+          
+          // Now attempt file uploads if we have a valid deviceId
+          if (deviceId && deviceId !== 'pending' && fileList.length > 0) {
+            message.info(`Uploading documents for device ID: ${deviceId}...`);
+            await uploadFilesForDevice(deviceId, fileList);
+          } else if (fileList.length > 0) {
+            // Store the files for later upload with manual ID
+            setPendingUploads([...fileList]);
+            message.warning('Device created successfully, but we could not determine the device ID for file uploads.');
+            // Show modal for manual device ID entry
+            setManualDeviceIdModalVisible(true);
+          }
+          
+          // If the current selected room matches the added device's room, update the UI
+          if (selectedRoom === values.roomId) {
+            const newItem = {
+              key: String(deviceId),
+              deviceId: deviceId,
+              name: values.name,
+              state: values.state || 'A',
+              price: values.price || 0,
+              maintenanceDate: maintenanceDate,
+              roomId: values.roomId,
+              remark: values.remark || '',
+              parts: formattedParts,
+              rfids: []
+            };
+            setItems([...items, newItem]);
+          }
+          
+          message.success('Device added successfully');
+          setIsModalVisible(false);
+          setFileList([]);
+          setDeviceParts([{ id: Date.now(), name: '' }]);
+          form.resetFields();
+        } else {
+          message.error(`Failed to add device: ${response.error?.description || 'Unknown error'}`);
+        }
       }
-      setIsModalVisible(false);
-      form.resetFields();
-    });
+    } catch (error) {
+      if (error.errorFields) {
+        message.error('Please fill in all required fields');
+      } else {
+        console.error('Error in form submission:', error);
+        message.error(`Operation failed: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
     setIsModalVisible(false);
     form.resetFields();
+    setFileList([]);
+    setDeviceParts([{ id: Date.now(), name: '' }]);
+  };
+  
+  // Helper function to upload files for a specific device ID
+  const uploadFilesForDevice = async (deviceId, files) => {
+    if (!deviceId || !files || files.length === 0) {
+      return true; // No files to upload, return success
+    }
+    
+    try {
+      message.info(`Uploading documents for device ID: ${deviceId}...`);
+      console.log(`Attempting to upload ${files.length} files for device ID: ${deviceId}`);
+      
+      const uploadPromises = files.map(file => {
+        if (!file.originFileObj) {
+          console.warn('File missing originFileObj:', file);
+          return Promise.resolve({ success: false, error: 'No file object' });
+        }
+        
+        console.log(`Uploading file ${file.name} for device ID: ${deviceId}`);
+        return assetService.uploadDeviceDoc(file.originFileObj, deviceId)
+          .then(result => {
+            console.log(`Upload result for ${file.name}:`, result);
+            if (result.success) {
+              message.success(`File ${file.name} uploaded successfully`);
+            } else {
+              // Check for specific backend path error
+              if (result.error && typeof result.error === 'string' && result.error.includes('Path is not exit')) {
+                // Show a more specific error message for the backend directory issue
+                message.error(`Backend storage error: The server directory for storing files doesn't exist. Please contact the administrator.`);
+              } else if (result.error && typeof result.error === 'string' && result.error.includes('Backend server storage error')) {
+                // The detailed error from our improved asset.js handler
+                message.error(result.error);
+              } else {
+                // Generic error fallback
+                message.error(`Failed to upload file ${file.name}: ${result.error || 'Unknown error'}`);
+              }
+            }
+            return result;
+          });
+      });
+      
+      const results = await Promise.all(uploadPromises);
+      
+      // Check if any uploads failed due to path errors
+      const pathErrors = results.filter(r => 
+        !r.success && r.error && typeof r.error === 'string' && (
+          r.error.includes('Path is not exit') || 
+          r.error.includes('Backend server storage error')
+        )
+      );
+      
+      if (pathErrors.length > 0) {
+        console.warn('Files were not uploaded due to backend path configuration issues. Device was created successfully, but you will need to upload files later when the backend is fixed.');
+      }
+      
+      return true;
+    } catch (uploadError) {
+      console.error('Error uploading files:', uploadError);
+      message.error('Some files could not be uploaded, but the device was created successfully');
+      return false;
+    }
+  };
+  const handleManualDeviceIdSubmit = async () => {
+    if (!manualDeviceId || manualDeviceId.trim() === '') {
+      message.error('Please enter a valid device ID');
+      return;
+    }
+    
+    const deviceId = parseInt(manualDeviceId.trim());
+    if (isNaN(deviceId)) {
+      message.error('Device ID must be a number');
+      return;
+    }
+    
+    // Upload files with the manually entered device ID
+    if (pendingUploads && pendingUploads.length > 0) {
+      const result = await uploadFilesForDevice(deviceId, pendingUploads);
+      if (result) {
+        message.success('Files uploaded successfully with manual device ID');
+        setPendingUploads(null);
+      }
+    }
+    
+    setManualDeviceIdModalVisible(false);
+    setManualDeviceId('');
+  };
+  
+  // Close the manual device ID modal
+  const handleManualDeviceIdCancel = () => {
+    setManualDeviceIdModalVisible(false);
+    setManualDeviceId('');
+    setPendingUploads(null);
+    message.info('File upload canceled');
+  };
+  
+  // Handle file upload changes
+  const handleFileChange = ({ fileList }) => {
+    setFileList(fileList);
+  };
+  
+  // Add a new empty part field
+  const addDevicePart = () => {
+    setDeviceParts([...deviceParts, { id: Date.now(), name: '' }]);
+  };
+  
+  // Update part name
+  const updatePartName = (id, newName) => {
+    setDeviceParts(deviceParts.map(part => 
+      part.id === id ? { ...part, name: newName } : part
+    ));
+  };
+  
+  // Remove a part
+  const removePart = (id) => {
+    // Don't remove if it's the last part
+    if (deviceParts.length <= 1) {
+      return;
+    }
+    setDeviceParts(deviceParts.filter(part => part.id !== id));
+  };
+  
+  // Render a file icon based on file type
+  const getFileIcon = (fileName) => {
+    if (!fileName) return <FileUnknownOutlined />;
+    
+    const extension = fileName.split('.').pop().toLowerCase();
+    
+    if (['pdf'].includes(extension)) {
+      return <FilePdfOutlined />;
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(extension)) {
+      return <FileImageOutlined />;
+    } else {
+      return <FileUnknownOutlined />;
+    }
   };
 
-  // Handle campus change
+  // Fetch campus data when component mounts
+  useEffect(() => {
+    const fetchCampusData = async () => {
+      try {
+        setLoading(true);
+        const response = await assetService.getCampusData();
+        
+        console.log('Campus data response:', response);
+        
+        if (response && Array.isArray(response.c)) {
+          const formattedCampuses = response.c.map(campus => ({
+            key: campus.campusId.toString(),
+            fullName: campus.campusName,
+            shortName: campus.campusShortName
+          }));
+          setCampuses(formattedCampuses);
+        } else {
+          console.warn('Unexpected API response format:', response);
+          setCampuses([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch campus data:', error);
+        message.error('Failed to load campus data');
+        setCampuses([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCampusData();
+  }, []);
+
+  // Handle campus change - fetch rooms for selected campus
   const handleCampusChange = (value) => {
     setSelectedCampus(value);
-    // TODO: filter or update rooms based on selected campus if needed
+    setSelectedRoom(null); // Reset room selection when campus changes
+    setItems([]); // Clear items when campus changes
+    
+    if (value) {
+      fetchRoomsByCampus(value);
+    } else {
+      setRooms([]);
+    }
   };
 
-  // Handle ROOM CHANGE
+  // Fetch rooms by campus ID
+  const fetchRoomsByCampus = async (campusId) => {
+    try {
+      setLoading(true);
+      const response = await assetService.getRoomsByCampus(campusId);
+      
+      if (response.success && response.data.rooms) {
+        const formattedRooms = response.data.rooms.map(room => ({
+          key: room.room.toString(),
+          roomId: room.room,
+          campusId: room.campusId,
+          roomNumber: room.roomNumber,
+          name: room.roomName || room.roomNumber
+        }));
+        setRooms(formattedRooms);
+      } else {
+        message.error(`Failed to load rooms: ${response.error?.description || 'Unknown error'}`);
+        setRooms([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch rooms:', error);
+      message.error(`Failed to load rooms: ${error.message}`);
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle room change
   const handleRoomChange = (value) => {
     setSelectedRoom(value);
-  }
+    setItems([]); // Clear items when room changes
+  };
 
-  const handleSort = () => {  
-//...
-  }
+  // Fetch devices by room ID
+  const handleSort = async () => {
+    if (!selectedRoom) {
+      message.warning('Please select a room first');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await assetService.getItemsByRoom(selectedRoom);
+            console.log('getItemsByRoom response:', response);
+        // Log the raw unprocessed response data to see original structure
+        console.log('Raw API response data:', response.data);
+        if (response.data && Array.isArray(response.data.device)) {
+          console.log('Original device array:', response.data.device);
+        }
+      
+      if (response.success) {
+        // Check various possible data formats from the API
+        let deviceData = [];
+        
+        if (Array.isArray(response.data)) {
+          // If the service already formatted the data for us
+          deviceData = response.data;
+        } else if (response.rawData && Array.isArray(response.rawData.device)) {
+          // If we have the raw device array from the API
+          deviceData = response.rawData.device.map(device => {
+            // Log the original device object to see all properties
+            console.log('Original device data from API:', device);
+            
+            // Access the parts (partID) and rfids (deviceRFID) directly from the response
+            // WITHOUT transforming them to preserve the exact structure
+            const parts = device.partID || [];
+            const rfids = device.deviceRFID || [];
+            
+            // Log parts data to debug
+            console.log(`Device ${device.deviceID} parts:`, parts);
+            console.log(`Device ${device.deviceID} RFIDs:`, rfids);
+            
+            return {
+              key: device.id.toString(),
+              deviceId: device.id,
+              name: device.deviceName,
+              price: device.price,
+              orderDate: device.orderDate,
+              arriveDate: device.arriveDate,
+              maintenanceDate: device.maintenanceDate,
+              roomId: device.roomID,
+              state: device.state,
+              remark: device.remark,
+              docs: device.docs || [],
+              parts: parts,
+              rfids: rfids
+            };
+          });
+        } else if (response.data && Array.isArray(response.data.device)) {
+          // Legacy format - if data contains a device array
+          deviceData = response.data.device.map(device => {
+            // Log the original device object to see all properties
+            console.log('Original device data from API (legacy format):', device);
+            
+            // IMPORTANT: The API returns partID and deviceRFID arrays - use the exact fields
+            const parts = device.partID || [];
+            const rfids = device.deviceRFID || [];
+            
+            // Log parts data to debug
+            console.log(`Device ${device.deviceID} parts (raw):`, parts);
+            
+            // Create properly structured item
+            const item = {
+              key: device.deviceID.toString(),
+              deviceId: device.deviceID,
+              name: device.deviceName,
+              price: device.price,
+              orderDate: device.orderDate,
+              arriveDate: device.arriveDate,
+              maintenanceDate: device.maintenanceDate,
+              roomId: device.roomID,
+              state: device.state,
+              remark: device.remark,
+              docs: device.docs || [],
+              // Pass the parts and rfids arrays directly without modification
+              parts: parts,
+              rfids: rfids
+            };
+            
+            console.log('Transformed item with parts:', item);
+            return item;
+          });
+        }
+        
+        setItems(deviceData);
+        message.success(`Loaded ${deviceData.length} items from selected room`);
+      } else {
+        // More descriptive error message
+        const errorMsg = response.error?.description || response.error || 'Server returned an error';
+        console.error(`Failed to load items: ${errorMsg}`, response);
+        message.error(`Failed to load items: ${errorMsg}`);
+        setItems([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch items:', error);
+      message.error(`Failed to load items: ${error.message || 'Connection error'}`);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Normalize upload file list
   const normFile = (e) => {
@@ -82,20 +612,94 @@ const ManageItem = () => {
     return e && e.fileList;
   };
 
+ 
+
   const columns = [
-    { title: "Item Name", dataIndex: "name", key: "name" },
-    { title: "Device", dataIndex: "device", key: "device" },
-    { title: "Part", dataIndex: "part", key: "part" },
+    { title: "Item Name", dataIndex: "name", key: "item-name-col" },
+    { 
+      title: "Status", 
+      dataIndex: "state", 
+      key: "status-col",
+      render: (state) => {
+        /**
+         * S = Shipping(運送中), A = Available for loan(可借出), R = Reserve(預留),
+         * L = On loan(借出中), E = Expired(過期), B = Broken(壞), W = Waiting for
+         * repairs to be completed(等待完成維修), D = Destroyed(棄物), M = Missing(缺失)
+         */
+        let color = 'green';
+        let text = 'Available';
+        
+        switch(state) {
+          case 'S':
+            color = 'orange';
+            text = 'Shipping';
+            break;
+          case 'A':
+            color = 'green';
+            text = 'Available';
+            break;
+          case 'R':
+            color = 'blue';
+            text = 'Reserved';
+            break;
+          case 'L':
+            color = 'cyan';
+            text = 'On Loan';
+            break;
+          case 'E':
+            color = 'volcano';
+            text = 'Expired';
+            break;
+          case 'B':
+            color = 'red';
+            text = 'Broken';
+            break;
+          case 'W':
+            color = 'gold';
+            text = 'Wait for Repair';
+            break;
+          case 'D':
+            color = 'black';
+            text = 'Destroyed';
+            break;
+          case 'M':
+            color = 'purple';
+            text = 'Missing';
+            break;
+          default:
+            color = 'default';
+            text = 'Unknown';
+        }
+        
+        return <Tag color={color}>{text}</Tag>;
+      }
+    },
+    { 
+      title: "Price", 
+      dataIndex: "price", 
+      key: "price-col",
+      render: (price) => `$${price}`
+    },
+    { 
+      title: "Maintenance Date", 
+      dataIndex: "maintenanceDate", 
+      key: "maintenance-date-col" 
+    },
     {
-      title: "Document",
-      dataIndex: "doc",
-      key: "doc",
-      render: (doc) =>
-        doc && doc.length > 0 ? doc.map((file) => file.name).join(", ") : "N/A",
+      title: "Parts",
+      dataIndex: "parts",
+      key: "parts-col",
+      render: (parts) => {
+        // Log parts to debug
+        console.log('Parts in column render:', parts);
+        return parts && parts.length > 0 ? 
+          <span>{parts.length} Part{parts.length > 1 ? 's' : ''}</span> : 
+          "No parts";
+      }
     },
     {
       title: "Action",
-      key: "action",
+      key: "action-col",
       render: (_, record) => (
         <Space size="middle">
           <Button onClick={() => showEditModal(record)}>Edit</Button>
@@ -105,10 +709,19 @@ const ManageItem = () => {
     },
   ];
 
-  // Filter items based on searchText
-  const filteredItems = items.filter((item) =>
-    item.name.toLowerCase().includes(searchText.toLowerCase())
-  );
+  // Filter items based on searchText and ensure all items have unique keys
+  const filteredItems = items
+    .filter((item) => item.name.toLowerCase().includes(searchText.toLowerCase()))
+    .map((item, index) => {
+      // Ensure each item has a unique key property
+      if (!item.key) {
+        return {
+          ...item,
+          key: `item-${item.deviceId || index}-${Date.now()}`
+        };
+      }
+      return item;
+    });
 
   return (
     <div style={{ padding: 16 }}>
@@ -120,125 +733,282 @@ const ManageItem = () => {
             style={{ width: 150 }}
             onChange={handleCampusChange}
             value={selectedCampus}
+            loading={loading}
           >
-            <Select.Option value="">Chai Wan</Select.Option>
-            <Select.Option value="">Haking Wong</Select.Option>
-            <Select.Option value="">Kwai Chung</Select.Option>
-            <Select.Option value="">Kwun Tong</Select.Option>
-            <Select.Option value="">Lee Wai Lee</Select.Option>
-            <Select.Option value="">Morrison Hill</Select.Option>
-            <Select.Option value="">Sha Tin</Select.Option>
-            <Select.Option value="">Tsing Yi</Select.Option>
-            <Select.Option value="">Tuen Mun</Select.Option>
+            {campuses.map(campus => (
+              <Select.Option key={campus.key} value={campus.key}>
+                {campus.shortName}
+              </Select.Option>
+            ))}
           </Select>
           <Select
             placeholder="Select Room"
             style={{ width: 150 }}
             onChange={handleRoomChange}
             value={selectedRoom}
+            loading={loading}
+            disabled={!selectedCampus}
           >
-            <Select.Option value="">348</Select.Option>
-            <Select.Option value="">349</Select.Option>
-            <Select.Option value="">350</Select.Option>
+            {rooms.map(room => (
+              <Select.Option key={room.key} value={room.roomId.toString()}>
+                {room.roomNumber} - {room.name}
+              </Select.Option>
+            ))}
           </Select>
           <Button type="primary" onClick={handleSort}>
                       Select
                     </Button>
 
          
-          <Search
-            placeholder="Search items"
-            onSearch={(value) => setSearchText(value)}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 300 }}
-          />
+     
            <Button type="primary" onClick={showAddModal}>
             Add Item
           </Button>
         </Space>
-        <Table
-          columns={columns}
-          dataSource={filteredItems}
-          pagination={{ pageSize: 5 }} // 添加分頁，每頁顯示5個項目
-        />
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <Spin size="large" />
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={filteredItems}
+            pagination={{ pageSize: 5 }}
+            expandable={{
+              expandedRowRender: record => (
+                <div style={{ margin: 0 }}>
+                  <p><strong>Remark:</strong> {record.remark || 'No remarks'}</p>
+                  <p><strong>Order Date:</strong> {record.orderDate}</p>
+                  <p><strong>Arrival Date:</strong> {record.arriveDate}</p>
+                  <div>
+                    <strong>Parts & RFIDs:</strong>
+                    {record.parts && record.parts.length > 0 ? (
+                      <Table 
+                        dataSource={record.parts.map(part => {
+                          // Log the part for debugging
+                          console.log('Processing part for display:', part);
+                          
+                          // Find matching RFID for this part - handle exact API structure
+                          const rfid = record.rfids?.find(r => 
+                            r.devicePartID === part.devicePartID && 
+                            r.deviceID === part.deviceID
+                          );
+                          
+                          // Part can be either {devicePartID, devicePartName} or {deviceID, devicePartID, devicePartName}
+                          return {
+                            key: `${part.deviceID}-${part.devicePartID}`, // Ensure unique key
+                            name: part.devicePartName,
+                            rfid: rfid ? rfid.rfid : 'No RFID'
+                          };
+                        })}
+                        columns={[
+                          { title: 'Part Name', dataIndex: 'name', key: 'part-name-col' },
+                          { title: 'RFID', dataIndex: 'rfid', key: 'rfid-col' }
+                        ]}
+                        pagination={false}
+                        size="small"
+                      />
+                    ) : (
+                      <p>No parts available</p>
+                    )}
+                  </div>
+                </div>
+              ),
+              rowExpandable: record => true,
+            }}
+          />
+        )}
       </Card>
       <Modal
-        title={editingItem ? "Edit Item" : "Add Item"}
+        title={editingItem ? "Edit Device" : "Add Device"}
         visible={isModalVisible}
         onOk={handleOk}
         onCancel={handleCancel}
+        confirmLoading={loading}
+        width={700}
       >
         <Form form={form} layout="vertical">
-           <Form.Item label="Campus" name="campus"
-                     rules={[{ required: true, message: 'Please choose a campus!' }]}>
-                    <Select
-                      placeholder="Select Campus"
-                      style={{ width: 150 }}
-                    >
-                      <Select.Option value="">Chai Wan</Select.Option>
-                      <Select.Option value="">Haking Wong</Select.Option>
-                      <Select.Option value="">Kwai Chung</Select.Option>
-                      <Select.Option value="">Kwun Tong</Select.Option>
-                      <Select.Option value="">Lee Wai Lee</Select.Option>
-                      <Select.Option value="">Morrison Hill</Select.Option>
-                      <Select.Option value="">Sha Tin</Select.Option>
-                      <Select.Option value="">Tsing Yi</Select.Option>
-                      <Select.Option value="">Tuen Mun</Select.Option>
-                    </Select>
-                    </Form.Item>
-                 
-                    <Form.Item
-                      name="name"
-                      label="Room Name"
-                      rules={[{ required: true, message: 'Please input the room name!' }]}
-                    >
-                      <Input />
-                    </Form.Item>
+          <Form.Item label="Campus" name="campus"
+            rules={[{ required: true, message: 'Please choose a campus!' }]}>
+            <Select
+              placeholder="Select Campus"
+              style={{ width: '100%' }}
+              loading={loading}
+              onChange={(value) => {
+                form.setFieldsValue({ roomId: undefined });
+                fetchRoomsByCampus(value);
+              }}
+              disabled={editingItem}
+            >
+              {campuses.map(campus => (
+                <Select.Option key={campus.key} value={campus.key}>
+                  {campus.shortName}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="roomId"
+            label="Room"
+            rules={[{ required: true, message: 'Please select a room!' }]}>
+            <Select
+              placeholder="Select Room"
+              style={{ width: '100%' }}
+              loading={loading}
+            >
+              {rooms.map(room => (
+                <Select.Option key={room.key} value={room.roomId.toString()}>
+                  {room.roomNumber} - {room.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
           <Form.Item
             name="name"
-            label="Item Name"
-            rules={[{ required: true, message: "Please input the item name!" }]}
+            label="Device Name"
+            rules={[{ required: true, message: "Please input the device name!" }]}
           >
             <Input />
           </Form.Item>
-          <Form.Item
-            name="device"
-            label="Device"
-            rules={[{ required: true, message: "Please input the device name!" }]}
-          >
-            <Input placeholder="e.g. Device Model X" />
-          </Form.Item>
-          <Form.Item
-            name="part"
-            label="Part"
-            rules={[{ required: true, message: "Please input the part details!" }]}
-          >
-            <Input placeholder="e.g. Part A, Part B" />
-          </Form.Item>
-          <Form.Item
-            name="doc"
-            label="Document (Optional)"
-            valuePropName="fileList"
-            getValueFromEvent={normFile}
-          >
-            <Upload.Dragger
-              name="files"
-              action="https://www.mocky.io/v2/5cc8019d300000980a055e76"
-              multiple={false}
-              beforeUpload={() => false} // Prevent auto upload for manual handling
+          
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <Form.Item
+              name="price"
+              label="Price"
+              rules={[{ required: true, message: "Please input the price!" }]}
+              style={{ flex: 1 }}
             >
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">
-                Click or drag document file to this area to upload
-              </p>
-              <p className="ant-upload-hint">
-                Support for DOC, PDF, or other document files.
-              </p>
-            </Upload.Dragger>
+              <Input type="number" min={0} prefix="$" />
+            </Form.Item>
+            <Form.Item
+              name="state"
+              label="Status"
+              initialValue="A"
+              rules={[{ required: true, message: "Please select the status!" }]}
+              style={{ flex: 1 }}
+            >
+              <Select>
+                <Select.Option value="S">Shipping</Select.Option>
+                <Select.Option value="A">Available for loan</Select.Option>
+                <Select.Option value="R">Reserved</Select.Option>
+                <Select.Option value="L">On loan</Select.Option>
+                <Select.Option value="E">Expired</Select.Option>
+                <Select.Option value="B">Broken</Select.Option>
+                <Select.Option value="W">Waiting for repairs</Select.Option>
+                <Select.Option value="D">Destroyed</Select.Option>
+                <Select.Option value="M">Missing</Select.Option>
+              </Select>
+            </Form.Item>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <Form.Item
+              name="orderDate"
+              label="Order Date"
+              style={{ flex: 1 }}
+            >
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="arriveDate"
+              label="Arrival Date"
+              style={{ flex: 1 }}
+            >
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="maintenanceDate"
+              label="Maintenance Date"
+              style={{ flex: 1 }}
+            >
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
+          
+          <Form.Item
+            name="remark"
+            label="Remarks"
+          >
+            <Input.TextArea rows={3} />
           </Form.Item>
+          
+          <Divider orientation="left">Device Parts</Divider>
+          
+          {deviceParts.map((part, index) => (
+            <div key={part.id} style={{ display: 'flex', marginBottom: '8px', alignItems: 'baseline' }}>
+              <div style={{ flex: 1, marginRight: '8px' }}>
+                <Input
+                  placeholder={`Enter part name ${index + 1}`}
+                  value={part.name}
+                  onChange={(e) => updatePartName(part.id, e.target.value)}
+                />
+              </div>
+              <Popconfirm
+                title="Are you sure you want to remove this part?"
+                onConfirm={() => removePart(part.id)}
+                okText="Yes"
+                cancelText="No"
+                disabled={deviceParts.length <= 1}
+              >
+                <Button 
+                  type="text" 
+                  danger 
+                  icon={<DeleteOutlined />} 
+                  disabled={deviceParts.length <= 1}
+                />
+              </Popconfirm>
+            </div>
+          ))}
+          
+          <Button 
+            type="dashed" 
+            onClick={addDevicePart} 
+            block 
+            icon={<PlusOutlined />}
+            style={{ marginBottom: '16px' }}
+          >
+            Add Part
+          </Button>
+          
+          <Divider orientation="left">Document Upload</Divider>
+          
+          <Upload.Dragger
+            name="files"
+            fileList={fileList}
+            onChange={handleFileChange}
+            beforeUpload={() => false} // Prevent auto upload
+            multiple
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text">
+              Click or drag file to this area to upload
+            </p>
+            <p className="ant-upload-hint">
+              Support for PDF, Word, Excel, and image files
+            </p>
+          </Upload.Dragger>
         </Form>
+      </Modal>
+      
+      {/* Manual Device ID Input Modal */}
+      <Modal
+        title="Enter Device ID for File Upload"
+        open={manualDeviceIdModalVisible}
+        onOk={handleManualDeviceIdSubmit}
+        onCancel={handleManualDeviceIdCancel}
+        okText="Upload Files"
+        cancelText="Cancel"
+      >
+        <p>The API did not return a device ID, but your device was created successfully. To upload files, please enter the device ID manually:</p>
+        <p style={{ color: 'red' }}>You can find the device ID in the device list - it's typically a number.</p>
+        <Input
+          placeholder="Enter device ID (number only)"
+          value={manualDeviceId}
+          onChange={(e) => setManualDeviceId(e.target.value)}
+          style={{ marginBottom: '15px' }}
+        />
       </Modal>
     </div>
   );

@@ -68,8 +68,42 @@ const ManageCampus = () => {
       okText: "Yes",
       okType: "danger",
       cancelText: "No",
-      onOk: () => {
-        setCampuses(campuses.filter((campus) => campus.key !== key));
+      onOk: async () => {
+        try {
+          setLoading(true);
+          // Call the API to delete the campus
+          const campusId = key;
+          console.log('Deleting campus with ID:', campusId);
+          
+          const response = await assetService.deleteCampus(campusId);
+          
+          if (response.success) {
+            message.success('Campus deleted successfully');
+            
+            // Refresh the campus list to get the updated data
+            const refreshResponse = await assetService.getCampusData();
+            if (refreshResponse && Array.isArray(refreshResponse.c)) {
+              const formattedCampuses = refreshResponse.c.map(campus => ({
+                key: campus.campusId.toString(),
+                fullName: campus.campusName,
+                shortName: campus.campusShortName
+              }));
+              setCampuses(formattedCampuses);
+            } else {
+              // If refresh fails, just update locally
+              setCampuses(campuses.filter((campus) => campus.key !== key));
+            }
+          } else {
+            message.error(`Failed to delete campus: ${response.error?.description || 'Unknown error'}`);
+          }
+        } catch (error) {
+          console.error('Delete campus error:', error);
+          message.error(`Failed to delete campus: ${error.message}`);
+          
+          // No local state changes on error
+        } finally {
+          setLoading(false);
+        }
       },
     }).catch((info) => {
         console.log('Delete Failed:', info);
