@@ -26,6 +26,8 @@ const ManageItem = () => {
   const [createdDeviceId, setCreatedDeviceId] = useState(null);
   const [fileUploadEnabled, setFileUploadEnabled] = useState(false);
   const [uploadInProgress, setUploadInProgress] = useState(false);
+  // State to track which row is currently expanded (null means no rows expanded)
+  const [expandedRowKey, setExpandedRowKey] = useState(null);
 
   const showAddModal = () => {
     setEditingItem(null);
@@ -65,7 +67,7 @@ const ManageItem = () => {
     }
     
     setFileUploadEnabled(true);
-    message.success('You can now upload files for this device. Drag files to the upload area.');
+    message.success('You can now upload files for this device. Add as many files as needed, then click "Finish & Upload Files".');
   };
 
   const handleOk = async () => {
@@ -77,6 +79,10 @@ const ManageItem = () => {
           await uploadFilesForDevice(createdDeviceId, fileList);
           setUploadInProgress(false);
         }
+        
+        // Show success message
+        message.success('Device creation and file uploads completed successfully');
+        
         // Close the modal and reset states
         setIsModalVisible(false);
         setDeviceCreated(false);
@@ -309,17 +315,31 @@ const ManageItem = () => {
     setFileUploadEnabled(false);
   };
   
-  // Helper function to upload files for a specific device ID
-  const uploadFilesForDevice = async (deviceId, files) => {
-    if (!deviceId || !files || files.length === 0) {
-      return true; // No files to upload, return success
+  // Function to upload the current batch without finishing the process
+  const uploadCurrentBatch = async () => {
+    if (fileList.length === 0) {
+      message.info('No files selected for upload');
+      return;
     }
     
+    setUploadInProgress(true);
+    await uploadFilesForDevice(createdDeviceId, fileList, true); // Clear files after upload
+    setUploadInProgress(false);
+  };
+  
+  // Helper function to upload files for a specific device ID
+  const uploadFilesForDevice = async (deviceId, files, clearAfterUpload = false) => {
     try {
-      message.info(`Uploading documents for device ID: ${deviceId}...`);
+      if (files.length === 0) {
+        message.info('No files selected for upload');
+        return true;
+      }
+      
+      message.info(`Uploading ${files.length} document(s) for device ID: ${deviceId}...`);
       console.log(`Attempting to upload ${files.length} files for device ID: ${deviceId}`);
       
       // Process files one by one sequentially for better control and feedback
+      let successCount = 0;
       for (const file of files) {
         if (!file.originFileObj) {
           console.warn('File missing originFileObj:', file);
@@ -333,6 +353,7 @@ const ManageItem = () => {
           
           if (result.success) {
             message.success(`File ${file.name} uploaded successfully`);
+            successCount++;
           } else {
             // Check for specific backend path error
             if (result.error && typeof result.error === 'string' && result.error.includes('Path is not exit')) {
@@ -349,7 +370,15 @@ const ManageItem = () => {
         }
       }
       
-      message.success('File upload process completed');
+      if (successCount > 0) {
+        message.success(`Successfully uploaded ${successCount} of ${files.length} file(s)`);
+      }
+      
+      // Clear the file list if requested
+      if (clearAfterUpload) {
+        setFileList([]);
+      }
+      
       return true;
     } catch (uploadError) {
       console.error('Error in file upload process:', uploadError);
@@ -357,6 +386,7 @@ const ManageItem = () => {
       return false;
     }
   };
+    
   const handleManualDeviceIdSubmit = async () => {
     if (!manualDeviceId || manualDeviceId.trim() === '') {
       message.error('Please enter a valid device ID');
@@ -784,7 +814,16 @@ const ManageItem = () => {
             columns={columns}
             dataSource={items}
             pagination={{ pageSize: 5 }}
+            // Ensure each row has a unique identifier for proper expansion control
+            rowKey={record => record.deviceId?.toString() || record.key}
             expandable={{
+              // Only include the currently expanded row key in this array
+              expandedRowKeys: expandedRowKey ? [expandedRowKey] : [],
+              // Handle expand/collapse actions
+              onExpand: (expanded, record) => {
+                // If expanding, store this row's key; if collapsing, set to null
+                setExpandedRowKey(expanded ? (record.deviceId?.toString() || record.key) : null);
+              },
               expandedRowRender: (record) => (
                 <div style={{ margin: 0 }}>
                   <p>
@@ -830,7 +869,7 @@ const ManageItem = () => {
                   </div>
                 </div>
               ),
-              rowExpandable: (record) => true,
+
             }}
           />
         )}
@@ -1000,9 +1039,10 @@ const ManageItem = () => {
               </p>
               {fileUploadEnabled ? (
                 <>
-                  <p className="ant-upload-text">Click or drag file to this area to upload</p>
+                  <p className="ant-upload-text">Click or drag files to this area to upload</p>
                   <p className="ant-upload-hint">
-                    Files will be uploaded for device ID: {createdDeviceId}
+                    Files will be uploaded for device ID: {createdDeviceId}<br/>
+                    You can add multiple files before clicking "Finish"
                   </p>
                 </>
               ) : deviceCreated ? (
@@ -1025,9 +1065,26 @@ const ManageItem = () => {
                 Confirm
               </Button>
               {fileUploadEnabled && (
-                <Button type="primary" onClick={handleOk} loading={uploadInProgress} style={{ marginLeft: 8 }}>
-                  Finish & Upload Files
-                </Button>
+                <>
+                  <Button 
+                    type="default" 
+                    onClick={uploadCurrentBatch} 
+                    loading={uploadInProgress} 
+                    style={{ marginLeft: 8 }}
+                    disabled={fileList.length === 0}
+                  >
+                    Upload Current Batch
+                  </Button>
+                  <Button 
+                    type="primary" 
+                    onClick={handleOk} 
+                    loading={uploadInProgress} 
+                    style={{ marginLeft: 8 }}
+                    disabled={fileList.length === 0}
+                  >
+                    Finish {fileList.length > 0 ? `& Upload ${fileList.length} File${fileList.length !== 1 ? 's' : ''}` : ''}
+                  </Button>
+                </>
               )}
             </>
           ) : (
