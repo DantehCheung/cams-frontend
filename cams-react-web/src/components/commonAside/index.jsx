@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useMemo } from "react";
 import * as Icon from "@ant-design/icons";
 
-import { Layout, Menu } from "antd";
+import { Layout, Menu, Tooltip } from "antd";
 import MainConfig from "../../config";
 import { useNavigate } from "react-router-dom";
 import camsLogo from "../../assets/images/camslogo.png";
+import { useAuth } from "../../context/AuthContext";
+import { PAGE_PERMISSIONS } from "../../api";
 
 const { Sider } = Layout;
 
@@ -20,34 +22,84 @@ const iconToElement = (name) => {
   return null;
 };
 
-// Process menu data
-const items = MainConfig.map((icon) => {
-  const child= {
-    key: icon.path,
-    icon: icon.icon ? iconToElement(icon.icon) : undefined,
-    label: icon.label,
-  };
-
-  if (icon.children) {
-    child.children = icon.children.map((subItem) => ({
-      key: subItem.path,
-      label: subItem.label,
-      icon: subItem.icon ? iconToElement(subItem.icon) : undefined,
-    }));
-  }
-
-  return child;
-});
+// Map routes to page permissions
+const routePermissionMap = {
+  // Home
+  "/home": PAGE_PERMISSIONS.HOME,
+  
+  // Borrow & Return
+  "/br/borrow": PAGE_PERMISSIONS.BORROW,
+  "/br/return": PAGE_PERMISSIONS.RETURN,
+  
+  // Manage
+  "/manage/addUser": PAGE_PERMISSIONS.USER_MANAGEMENT,
+  "/manage/genReport": PAGE_PERMISSIONS.REPORT,
+  "/manage/manageCampus": PAGE_PERMISSIONS.CAMPUS_MANAGEMENT,
+  "/manage/manageRoom": PAGE_PERMISSIONS.ROOM_MANAGEMENT,
+  "/manage/manageItem": PAGE_PERMISSIONS.ITEM_MANAGEMENT,
+  
+  // Other
+  "/other/connectRFID": PAGE_PERMISSIONS.RFID,
+  "/other/downloadVer": 0, // No specific permission
+  "/userInfo": PAGE_PERMISSIONS.USER_INFO
+};
 
 const CommonAsider = ({ collapsed }) => {
   const navigate = useNavigate();
+  const { hasPermission, accessLevel } = useAuth();
 
-  // 處理菜單點擊事件
+  // Process menu data with permission checks
+  const menuItems = useMemo(() => {
+    return MainConfig.map((icon) => {
+      const menuPermission = routePermissionMap[icon.path] || 0;
+      const itemDisabled = !hasPermission(accessLevel, menuPermission);
+      
+      const child = {
+        key: icon.path,
+        icon: icon.icon ? iconToElement(icon.icon) : undefined,
+        label: itemDisabled ? (
+          <Tooltip title="You don't have permission to access this page">
+            <span>{icon.label}</span>
+          </Tooltip>
+        ) : icon.label,
+        disabled: itemDisabled,
+      };
+
+      if (icon.children) {
+        // Process children and check if all children are disabled
+        const processedChildren = icon.children.map((subItem) => {
+          const subPermission = routePermissionMap[subItem.path] || 0;
+          const subDisabled = !hasPermission(accessLevel, subPermission);
+          
+          return {
+            key: subItem.path,
+            label: subDisabled ? (
+              <Tooltip title="You don't have permission to access this page">
+                <span>{subItem.label}</span>
+              </Tooltip>
+            ) : subItem.label,
+            icon: subItem.icon ? iconToElement(subItem.icon) : undefined,
+            disabled: subDisabled,
+          };
+        });
+        
+        child.children = processedChildren;
+        
+        // If all children are disabled, disable the parent too
+        if (processedChildren.every(item => item.disabled)) {
+          child.disabled = true;
+        }
+      }
+
+      return child;
+    });
+  }, [hasPermission, accessLevel]);
+
+  // Handle menu click event
   const handleMenuClick = ({ key }) => {
-    navigate(key); // 跳轉到對應的路由
+    navigate(key); // Navigate to the selected route
   };
 
-  console.log(collapsed, "commondasider");
   return (
     <Sider trigger={null} collapsed={collapsed}>
       <div className="app-name">
@@ -61,11 +113,11 @@ const CommonAsider = ({ collapsed }) => {
         theme="dark"
         mode="inline"
         defaultSelectedKeys={["1"]}
-        items={items}
+        items={menuItems}
         style={{
           height: "100%",
         }}
-        onClick={handleMenuClick} // on click event
+        onClick={handleMenuClick}
       />
     </Sider>
   );

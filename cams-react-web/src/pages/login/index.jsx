@@ -48,7 +48,11 @@ const Page = () => {
       if (result.success) {
         console.log('Login successful');
         message.success('Login successful!');
-        navigate("/home");
+        
+        // Use the redirectPath from the login result (students go to borrow page, others to home)
+        const redirectTo = result.redirectPath || '/home';
+        console.log(`Redirecting to: ${redirectTo}`);
+        navigate(redirectTo);
       } else {
         // Handle error from login attempt
         console.log('Login failed:', result.error);

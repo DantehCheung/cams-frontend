@@ -65,11 +65,12 @@ export const AuthProvider = ({ children }) => {
       
       if (response.data && !response.data.errorCode) {
         const { token, accessLevel, accessPage, firstName, lastName, lastLoginIp } = response.data;
+        const numericAccessLevel = Number(accessLevel);
         
         // Store the access token in memory only
         setAuthState({
           token,
-          accessLevel: Number(accessLevel),
+          accessLevel: numericAccessLevel,
           accessPage: Number(accessPage),
           user: { firstName, lastName, lastLoginIp },
           isAuthenticated: true,
@@ -79,7 +80,18 @@ export const AuthProvider = ({ children }) => {
         // Set token for API requests
         axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
-        return { success: true };
+        // Determine redirect path based on user role
+        let redirectPath = '/home';
+        
+        // If user is a student, redirect to borrow page
+        if (numericAccessLevel === ACCESS_LEVELS.STUDENT) {
+          redirectPath = '/br/borrow';
+        }
+        
+        return { 
+          success: true,
+          redirectPath: redirectPath 
+        };
       } else {
         return { success: false, error: response.data };
       }
@@ -154,19 +166,7 @@ export const AuthProvider = ({ children }) => {
     const hasPermission = (authState.accessPage & pagePermission) !== 0;
     console.log(`Page Permission Check: Required=${pagePermission}, User=${authState.accessPage}, Result=${hasPermission}`);
     
-    // For teachers, grant access to campus, room, and item management
-    if (authState.accessLevel <= ACCESS_LEVELS.TEACHER) {
-      const managementPermissions = 
-        PAGE_PERMISSIONS.CAMPUS_MANAGEMENT | 
-        PAGE_PERMISSIONS.ROOM_MANAGEMENT | 
-        PAGE_PERMISSIONS.ITEM_MANAGEMENT;
-      
-      if ((pagePermission & managementPermissions) !== 0) {
-        console.log('Teacher override for management pages granted');
-        return true;
-      }
-    }
-    
+    // This original teacher override is now handled in the hasPermission function
     return hasPermission;
   };
 
@@ -174,6 +174,45 @@ export const AuthProvider = ({ children }) => {
     // Check authentication
     if (!authState.isAuthenticated) return false;
     
+    // ADMIN (accessLevel = 0) can access all pages
+    if (authState.accessLevel === ACCESS_LEVELS.ADMIN) {
+      console.log('Admin override - full access granted');
+      return true;
+    }
+    
+    // TEACHER (accessLevel = 100) can access all pages except Add User
+    if (authState.accessLevel === ACCESS_LEVELS.TEACHER) {
+      // Block access to User Management for teachers
+      if (requiredPageBit === PAGE_PERMISSIONS.USER_MANAGEMENT) {
+        console.log('Teacher restricted from User Management');
+        return false;
+      }
+      
+      // Grant access to all other pages for teachers
+      console.log('Teacher override - access granted except User Management');
+      return true;
+    }
+    
+    // STUDENT (accessLevel = 1000) can only access specific pages
+    if (authState.accessLevel === ACCESS_LEVELS.STUDENT) {
+      const allowedStudentPages = [
+        PAGE_PERMISSIONS.RETURN,
+        PAGE_PERMISSIONS.BORROW,
+        PAGE_PERMISSIONS.RFID,
+        PAGE_PERMISSIONS.USER_INFO,
+        0 // For pages with no specific permission bit (like downloadVer)
+      ];
+      
+      if (allowedStudentPages.includes(requiredPageBit)) {
+        console.log('Student access granted to allowed page');
+        return true;
+      } else {
+        console.log('Student access denied to restricted page');
+        return false;
+      }
+    }
+    
+    // For other access levels, fall back to the original permission checks
     // Check role permission
     if (!hasRolePermission(requiredLevel)) return false;
     
