@@ -359,10 +359,15 @@ export const addDevice = async (deviceData) => {
 export const updateDevice = async (deviceData) => {
   try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-    const response = await axiosInstance.post('updatedevice', {
+    console.log('Updating device with data:', JSON.stringify(deviceData, null, 2));
+    
+    // Use the new edititem endpoint
+    const response = await axiosInstance.post('edititem', {
       ...deviceData,
       token: token
     });
+    
+    console.log('Edit device response:', response.data);
     
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -456,5 +461,93 @@ export const getDeviceDocuments = async (deviceId) => {
   } catch(error) {
     console.error('Get device documents error:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete RFID tag from device
+ */
+export const deleteRFID = async (rfidData) => {
+  try {
+    const response = await axiosInstance.post('deleterfid', rfidData);
+    
+    console.log('API response from deleteRFID:', response.data);
+    
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: response.data };
+  } catch(error) {
+    console.error('Delete RFID error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Download a document file for a device
+ * @param {string} docPath - The document path in format 'deviceId/filename'
+ * @returns {Promise} - A promise that resolves with the blob data
+ */
+export const downloadDeviceDoc = async (docPath) => {
+  try {
+    // Parse the docPath to ensure it's in the correct format (deviceId/filename)
+    // The URL should be /files/devicedoc/download/{deviceId}/{filename}
+    
+    // Ensure we're using the correct path format without URL encoding the slash
+    let path = docPath;
+    if (!path.includes('/')) {
+      console.warn('Document path should be in format "deviceId/filename"');
+    }
+    
+    // Extract the token from the Authorization header
+    // The backend expects this as a separate 'token' header
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    
+    // Make the request with the token in a specific header as required by the backend
+    const response = await axiosInstance.get(`files/devicedoc/download/${path}`, {
+      responseType: 'blob', // Important: Set responseType to 'blob' to receive binary data
+      headers: {
+        'token': token // Add the token as a specific header required by the backend
+      }
+    });
+    
+    // Create a safe filename for download
+    const filename = docPath.includes('/') ? docPath.split('/').pop() : docPath;
+    
+    // If we get here, the request was successful
+    return { 
+      success: true,
+      data: response.data,
+      filename,
+      contentType: response.headers['content-type']
+    };
+  } catch(error) {
+    console.error('Error downloading document:', error);
+    return { success: false, error: error.message || 'Unknown error' };
+  }
+}
+
+/**
+ * Delete a document file for a device
+ * @param {string} deviceId - The device ID
+ * @param {string} docPath - The document path in format 'deviceId/filename'
+ * @returns {Promise} - A promise that resolves with the API response
+ */
+export const deleteDeviceDoc = async (deviceId, docPath) => {
+  try {
+    // Extract the token from the Authorization header
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    
+    // Make the request with the required parameters
+    const response = await axiosInstance.post('deletedoc', {
+      token, // Include token in the request body as required by the API
+      deviceID: deviceId, // The device ID
+      docPath // The full document path
+    });
+    
+    return { success: true, status: response.data.status };
+  } catch(error) {
+    console.error('Error deleting document:', error);
+    return { success: false, error: error.message || 'Unknown error' };
   }
 }

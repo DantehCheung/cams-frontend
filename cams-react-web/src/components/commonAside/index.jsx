@@ -4,6 +4,7 @@ import * as Icon from "@ant-design/icons";
 import { Layout, Menu } from "antd";
 import MainConfig from "../../config";
 import { useNavigate } from "react-router-dom";
+import camsLogo from "../../assets/images/camslogo.png";
 
 const { Sider } = Layout;
 
@@ -49,7 +50,13 @@ const CommonAsider = ({ collapsed }) => {
   console.log(collapsed, "commondasider");
   return (
     <Sider trigger={null} collapsed={collapsed}>
-      <h3 className="app-name">{collapsed ? "CAMS" : "CAMS CW SYSTEM"}</h3>
+      <div className="app-name">
+        {collapsed ? (
+          <img src={camsLogo} alt="CAMS Logo" style={{ maxWidth: '80%', margin: '10px auto', display: 'block' }} />
+        ) : (
+          <h3>CAMS CW SYSTEM</h3>
+        )}
+      </div>
       <Menu
         theme="dark"
         mode="inline"

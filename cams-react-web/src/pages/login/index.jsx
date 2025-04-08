@@ -16,11 +16,10 @@ import {
 } from '@ant-design/pro-components';
 import { Button, Divider, Space, Tabs, message, theme } from 'antd';
 import { useState } from 'react';
-import ReactLogo from "../../assets/react.svg"
-import { getMenu } from "../../api"
 import Video from "../../assets/video/login.mp4"
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import camsLogo from "../../assets/images/camslogo.png";
 
 const iconStyles = {
   color: 'rgba(0, 0, 0, 0.2)',
@@ -71,7 +70,7 @@ const Page = () => {
     >
   
   <LoginFormPage
-    logo={ReactLogo}
+    logo={camsLogo}
     backgroundVideoUrl={Video}
     title="CAMS"
     containerStyle={{

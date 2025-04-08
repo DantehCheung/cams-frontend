@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Input, Button, Table, Space, Modal, Typography, Upload, message, Select, Spin, Tag, DatePicker, Divider, Popconfirm } from "antd";
-import { InboxOutlined, PlusOutlined, DeleteOutlined, FilePdfOutlined, FileImageOutlined, FileUnknownOutlined } from "@ant-design/icons";
+import { InboxOutlined, PlusOutlined, DeleteOutlined, FilePdfOutlined, FileImageOutlined, FileUnknownOutlined, DownloadOutlined } from "@ant-design/icons";
 import { assetService } from "../../api";
+import axiosInstance from "../../api/axios";
 
 const { Title } = Typography;
 
@@ -28,6 +29,11 @@ const ManageItem = () => {
   const [uploadInProgress, setUploadInProgress] = useState(false);
   // State to track which row is currently expanded (null means no rows expanded)
   const [expandedRowKey, setExpandedRowKey] = useState(null);
+  // State for RFID assignment modal
+  const [rfidModalVisible, setRfidModalVisible] = useState(false);
+  const [selectedPartId, setSelectedPartId] = useState(null);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+  const [rfidValue, setRfidValue] = useState('');
 
   const showAddModal = () => {
     setEditingItem(null);
@@ -57,6 +63,169 @@ const ManageItem = () => {
         message.success("Item deleted successfully.");
       },
     });
+  };
+  
+  // Function to handle document download
+  const handleDownloadDocument = async (deviceId, docPath) => {
+    try {
+      setLoading(true);
+      
+      // Get the blob data directly from the asset service
+      const result = await assetService.downloadDeviceDoc(docPath);
+      
+      if (result.success && result.data) {
+        // Create a temporary URL for the blob
+        const url = window.URL.createObjectURL(result.data);
+        
+        // Create a temporary anchor element
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        
+        // Use the filename from the result
+        a.download = result.filename || 'document';
+        
+        // Add to body, click and remove
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        message.success('Document downloaded successfully');
+      } else {
+        message.error(`Failed to download document: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      message.error(`Error downloading document: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to handle document deletion
+  const handleDeleteDocument = async (deviceId, docPath) => {
+    try {
+      setLoading(true);
+      
+      // Call the delete document API
+      const result = await assetService.deleteDeviceDoc(deviceId, docPath);
+      
+      if (result.success && result.status) {
+        message.success('Document deleted successfully');
+        
+        // Refresh all items to show the updated document list
+        if (selectedRoom) {
+          // Directly call getItemsByRoom to refresh the data
+          const response = await assetService.getItemsByRoom(selectedRoom);
+          
+          if (response.success) {
+            // Process the response based on the data structure
+            let deviceData = [];
+            
+            if (Array.isArray(response.devices)) {
+              deviceData = response.devices;
+            } else if (response.data && Array.isArray(response.data)) {
+              deviceData = response.data;
+            } else if (response.data && response.data.device && Array.isArray(response.data.device)) {
+              deviceData = response.data.device;
+            }
+            
+            // Update the items with the refreshed data
+            setItems(deviceData);
+            
+            // If a row was expanded, maintain its expanded state
+            if (expandedRowKey) {
+              // Small delay to ensure the row is still available after refresh
+              setTimeout(() => {
+                setExpandedRowKey(expandedRowKey);
+              }, 100);
+            }
+          }
+        }
+      } else {
+        message.error(`Failed to delete document: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      message.error(`Error deleting document: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to handle RFID tag deletion
+  const handleDeleteRFID = async (rfid, deviceId, partId) => {
+    try {
+      setLoading(true);
+      // Get token from authorization header
+      const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+      
+      // Prepare the request data as specified
+      const requestData = {
+        token: token,
+        RFID: rfid,
+        deviceID: deviceId,
+        partID: partId
+      };
+      
+      console.log('Sending delete RFID request:', requestData);
+      
+      const response = await assetService.deleteRFID(requestData);
+      
+      if (response.success) {
+        message.success('RFID tag deleted successfully');
+        
+        // Update the local state to remove the deleted RFID
+        const updatedItems = items.map(item => {
+          // Only update the item that contains the deleted RFID
+          if (item.deviceId.toString() === deviceId.toString()) {
+            // Filter out the deleted RFID
+            const updatedRfids = (item.rfids || []).filter(r => r.rfid !== rfid);
+            return { ...item, rfids: updatedRfids };
+          }
+          return item;
+        });
+        
+        setItems(updatedItems);
+      } else {
+        message.error(`Failed to delete RFID tag: ${response.error?.description || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting RFID tag:', error);
+      message.error(`Error deleting RFID tag: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to show the RFID assignment modal
+  const showRfidAssignModal = (deviceId, partId) => {
+    setSelectedDeviceId(deviceId);
+    setSelectedPartId(partId);
+    setRfidValue(''); // Clear any previous RFID value
+    setRfidModalVisible(true);
+  };
+  
+  // Function to handle RFID modal cancel
+  const handleRfidModalCancel = () => {
+    setRfidModalVisible(false);
+    setSelectedDeviceId(null);
+    setSelectedPartId(null);
+    setRfidValue('');
+  };
+  
+  // Function to handle RFID assignment
+  const handleRfidAssign = () => {
+    // In the future, this will contain the logic to assign the RFID to the part
+    // For now, just close the modal and show a message
+    message.success(`RFID assignment functionality will be implemented later`);
+    setRfidModalVisible(false);
+    setSelectedDeviceId(null);
+    setSelectedPartId(null);
+    setRfidValue('');
   };
 
   // Handle confirmation of device creation before proceeding to file upload
@@ -114,15 +283,17 @@ const ManageItem = () => {
         // Handle update device
         const deviceData = {
           deviceName: values.name,
-          roomID: values.roomId,
-          price: values.price || 0,
+          roomID: parseInt(values.roomId, 10), // Ensure roomID is a number
+          price: parseFloat(values.price) || 0, // Ensure price is a number
           orderDate: orderDate,
           arriveDate: arriveDate,
           maintenanceDate: maintenanceDate,
           state: values.state || 'A',
           remark: values.remark || '',
-          deviceID: editingItem.deviceId
+          deviceID: parseInt(editingItem.deviceId, 10) // Ensure deviceID is a number
         };
+        
+        console.log('Editing device with ID:', deviceData.deviceID);
         
         const response = await assetService.updateDevice(deviceData);
         
@@ -843,28 +1014,160 @@ const ManageItem = () => {
                           // Log the part for debugging
                           console.log('Processing part for display:', part);
                           
-                          // Find matching RFID for this part - handle exact API structure
-                          const rfid = record.rfids?.find((r) =>
+                          // Find matching RFIDs for this part - handle exact API structure
+                          const matchingRfids = record.rfids?.filter((r) =>
                             r.devicePartID === part.devicePartID &&
                             r.deviceID === part.deviceID
-                          );
+                          ) || [];
                           
                           // Part can be either {devicePartID, devicePartName} or {deviceID, devicePartID, devicePartName}
                           return {
                             key: `${part.deviceID}-${part.devicePartID}`, // Ensure unique key
                             name: part.devicePartName,
-                            rfid: rfid ? rfid.rfid : 'No RFID',
+                            rfids: matchingRfids,
+                            rfidDisplay: matchingRfids.length > 0 
+                              ? matchingRfids.map(r => r.rfid).join(', ') 
+                              : 'No RFID'
                           };
                         })}
                         columns={[
                           { title: 'Part Name', dataIndex: 'name', key: 'part-name-col' },
-                          { title: 'RFID', dataIndex: 'rfid', key: 'rfid-col' },
+                          { 
+                            title: 'RFID Tags', 
+                            key: 'rfid-col',
+                            render: (_, record) => (
+                              <div>
+                                {record.rfids && record.rfids.length > 0 ? (
+                                  record.rfids.map((rfidItem, index) => (
+                                    <Tag 
+                                      color="blue" 
+                                      closable 
+                                      key={index} 
+                                      style={{ marginRight: '4px' }}
+                                      onClose={(e) => {
+                                        // Prevent the default close behavior
+                                        e.preventDefault();
+                                        // Show confirmation modal
+                                        Modal.confirm({
+                                          title: 'Delete RFID',
+                                          content: 'Are you sure you want to delete this RFID tag?',
+                                          okText: 'Delete',
+                                          okType: 'danger',
+                                          cancelText: 'Cancel',
+                                          onOk: () => {
+                                            handleDeleteRFID(rfidItem.rfid, record.key.split('-')[0], rfidItem.devicePartID);
+                                          }
+                                        });
+                                      }}
+                                    >
+                                      {rfidItem.rfid}
+                                    </Tag>
+                                  ))
+                                ) : (
+                                  <span>No RFID</span>
+                                )}
+                              </div>
+                            )
+                          },
+                          { 
+                            title: 'Actions', 
+                            key: 'part-action-col',
+                            render: (_, record) => {
+                              // Get first RFID to extract device and part IDs if available
+                              if (record.rfids && record.rfids.length > 0) {
+                                const rfid = record.rfids[0];
+                                // Use actual properties from the RFID data
+                                return (
+                                  <Button 
+                                    type="primary" 
+                                    size="small"
+                                    onClick={() => showRfidAssignModal(rfid.deviceID, rfid.devicePartID)}
+                                  >
+                                    Assign RFID
+                                  </Button>
+                                );
+                              } else {
+                                // Extract deviceId and partId from the record key as fallback
+                                const [deviceId, devicePartId] = record.key.split('-');
+                                return (
+                                  <Button 
+                                    type="primary" 
+                                    size="small"
+                                    onClick={() => showRfidAssignModal(deviceId, devicePartId)}
+                                  >
+                                    Assign RFID
+                                  </Button>
+                                );
+                              }
+                            }
+                          },
                         ]}
                         pagination={false}
                         size="small"
                       />
                     ) : (
                       <p>No parts available</p>
+                    )}
+                  </div>
+                  
+                  {/* Document Files Table */}
+                  <div style={{ marginTop: '16px' }}>
+                    <strong>Document Files:</strong>
+                    {record.docs && record.docs.length > 0 ? (
+                      <Table
+                        dataSource={record.docs.map((doc) => {
+                          // Extract filename from path
+                          let filename = doc.docPath || '';
+                          // Remove the path part and keep only the filename
+                          if (filename.includes('/')) {
+                            filename = filename.split('/').pop();
+                          }
+                          
+                          return {
+                            key: `doc-${doc.id || Math.random()}`,
+                            filename: filename || 'Unnamed file',
+                            originalPath: doc.docPath || '',
+                            deviceId: record.deviceId
+                          };
+                        })}
+                        columns={[
+                          { title: 'Filename', dataIndex: 'filename', key: 'doc-filename-col' },
+                          { 
+                            title: 'Action', 
+                            key: 'doc-action-col',
+                            render: (_, doc) => (
+                              <Space>
+                                <Button 
+                                  type="link" 
+                                  icon={<DownloadOutlined />} 
+                                  onClick={() => handleDownloadDocument(doc.deviceId, doc.originalPath)}
+                                >
+                                  Download
+                                </Button>
+                                <Popconfirm
+                                  title="Delete document"
+                                  description="Are you sure you want to delete this document?"
+                                  onConfirm={() => handleDeleteDocument(doc.deviceId, doc.originalPath)}
+                                  okText="Yes"
+                                  cancelText="No"
+                                >
+                                  <Button 
+                                    type="link" 
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                  >
+                                    Delete
+                                  </Button>
+                                </Popconfirm>
+                              </Space>
+                            )
+                          }
+                        ]}
+                        pagination={false}
+                        size="small"
+                      />
+                    ) : (
+                      <p>No document files available</p>
                     )}
                   </div>
                 </div>
@@ -960,7 +1263,8 @@ const ManageItem = () => {
             <Form.Item
               name="orderDate"
               label="Order Date"
-              style={{ flex: 1 }}
+              rules={[{ required: true, message: 'Please select a date!' }]}
+              style={{ flex: 1 }}    
             >
               <DatePicker style={{ width: '100%' }} />
             </Form.Item>
@@ -1097,7 +1401,54 @@ const ManageItem = () => {
           </Button>
         </Form.Item>
       </Modal>
-      
+
+      {/* RFID Assignment Modal */}
+      <Modal
+        title="Assign RFID Tag"
+        open={rfidModalVisible}
+        onCancel={handleRfidModalCancel}
+        footer={[
+          <Button key="cancel" onClick={handleRfidModalCancel}>
+            Cancel
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleRfidAssign}>
+            Assign
+          </Button>,
+        ]}
+      >
+        <Spin spinning={loading}>
+          <Form layout="vertical">
+            <Form.Item label="Device ID (deviceID)" style={{ marginBottom: '12px' }}>
+              <Input value={selectedDeviceId} disabled />
+            </Form.Item>
+            <Form.Item label="Device Part ID (devicePartID)" style={{ marginBottom: '12px' }}>
+              <Input value={selectedPartId} disabled />
+            </Form.Item>
+            <Form.Item 
+              label="RFID Tag" 
+              style={{ marginBottom: '12px' }}
+              help="This field will be automatically filled by the RFID reader. Do not type manually."
+            >
+              <Input
+                value={rfidValue}
+                onChange={(e) => setRfidValue(e.target.value)}
+                placeholder="Waiting for RFID scan..."
+                readOnly
+                style={{ backgroundColor: '#f5f5f5' }}
+              />
+            </Form.Item>
+            <div style={{ marginTop: '12px', color: '#1890ff' }}>
+              <p><strong>Instructions:</strong></p>
+              <ol>
+                <li>Place the RFID tag near the reader</li>
+                <li>Wait for the RFID value to appear in the field</li>
+                <li>Click 'Assign' to associate this RFID tag with the part</li>
+              </ol>
+            </div>
+          </Form>
+        </Spin>
+      </Modal>
+
       {/* Manual Device ID Input Modal */}
       <Modal
         title="Enter Device ID for File Upload"
