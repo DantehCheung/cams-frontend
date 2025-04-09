@@ -1,80 +1,51 @@
-import React, { useState, useEffect } from "react";
-import { Typography, Select, Button, Divider, Form, Row, Col, Card, message } from "antd";
+import React, { useState, useEffect, useRef } from "react";
+import { Typography, Select, Button, Divider, Form, Row, Col, Card } from "antd";
 import RFID from "../../components/commonRFID/RFID";
-let inBrowser = true;
-try{
-var { ipcRenderer } = window.require("electron");
-inBrowser = false;
-}catch(e){
-  inBrowser = true;}
-let isLoad = false;
+import { useRfid } from "../../context/RfidContext";
 
 const { Title } = Typography;
 
 const ConnectRFID = () => {
-  const [data, setData] = useState("Item1");
-  const [availableDevices, setAvailableDevices] = useState([]);
-
-  const showDebugMsg = (e) => {
-    ipcRenderer.on(e, (event, message) => {
-      document.getElementById("output").innerHTML += `<span style="color:red;">${e}</span>: ${message}<br>`;
-    });
-  };
-
-  const addIpcRendererOn = () => {
-    ipcRenderer.on("replyGetUsbDeviceList", (event, devices) => {
-      populateAvailableDevices(devices);
-    });
-
-    showDebugMsg("replyConnectUsbRfidReader");
-    showDebugMsg("replySingleRead");
-    showDebugMsg("newScannedTag");
-    showDebugMsg("scanningOver");
-    showDebugMsg("replyGetRfidReaderInformation");
-    showDebugMsg("replyStartLoopRead");
-    showDebugMsg("replyStopLoopRead");
-    showDebugMsg("replyDisconnectUsbRfidReader");
-  };
-
-  const populateAvailableDevices = (j) => {
-    let devices = JSON.parse(j).devices;
-    const deviceOptions = devices.map((device, index) => ({
-      value: index.toString(),
-      label: device,
-    }));
-    setAvailableDevices(deviceOptions);
-  };
-
+  // Use the global RFID context
+  const {
+    isConnected,
+    isScanning,
+    availableDevices,
+    lastScannedTag,
+    connectReader,
+    startScanning,
+    stopScanning,
+    disconnectReader,
+    clearData,
+    resetConnection,
+    checkConnectionStatus,
+    setLogReference,
+    inBrowser
+  } = useRfid();
+  
+  const outputRef = useRef(null);
+  
+  // Setup the output reference for logging
   useEffect(() => {
-    if (isLoad || inBrowser) {
-      return;
+    if (outputRef.current) {
+      setLogReference(outputRef.current);
     }
-    isLoad = true;
-    addIpcRendererOn();
-    ipcRenderer.send("getUsbDeviceList");
-
-    document.getElementById("clear").addEventListener("click", () => {
-      document.getElementById("output").innerHTML = "";
-    });
-
-    document.getElementById("connectBtn").addEventListener("click", () => {
-      document.getElementById("output").innerHTML += `<span style="color:red;">"connectBtn"</span>: 1<br>`;
-      ipcRenderer.send("connectUsbRfidReader", 0);
-    });
-
-    document.getElementById("execute").addEventListener("click", () => {
-      ipcRenderer.send("startLoopRead", 0);
-    });
-
-    document.getElementById("stop").addEventListener("click", () => {
-      ipcRenderer.send("stopLoopRead", 0);
-    });
-
-    document.getElementById("disconnect").addEventListener("click", () => {
-      document.getElementById("output").innerHTML += `<span style="color:red;">"Disconnected"</span>: 1<br>`;
-      ipcRenderer.send("disconnectUsbRfidReader", 0);
-    });
-  }, []);
+  }, [outputRef, setLogReference]);
+  
+  // Display scanned tag details if available
+  const getTagDisplay = () => {
+    if (!lastScannedTag) return 'No tag scanned';
+    
+    return (
+      <div>
+        <p><strong>EPC:</strong> {lastScannedTag.EPC || 'N/A'}</p>
+        <p><strong>TID:</strong> {lastScannedTag.TID || 'N/A'}</p>
+        <p><strong>Antenna:</strong> {lastScannedTag.Antenna || 'N/A'}</p>
+        <p><strong>Protocol:</strong> {lastScannedTag.Protocol || 'N/A'}</p>
+        <p><strong>RSSI:</strong> {lastScannedTag.RSSI || 'N/A'}</p>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -86,15 +57,13 @@ const ConnectRFID = () => {
               <Col xs={24} md={12}>
                 <Form.Item label="Connection Type">
                   <Select
-                    id="connectType"
                     showSearch
                     style={{ width: "100%" }}
                     placeholder="SELECT"
                     optionFilterProp="label"
-                    filterSort={(optionA, optionB) =>
-                      (optionA?.label ?? "").toLowerCase().localeCompare((optionB?.label ?? "").toLowerCase())
-                    }
+                    defaultValue="USB"
                     options={[{ value: "USB", label: "USB" }]}
+                    disabled={inBrowser}
                   />
                 </Form.Item>
               </Col>
@@ -102,50 +71,93 @@ const ConnectRFID = () => {
                 <Form.Item label="Available Device">
                   <div style={{ display: "flex", alignItems: "center" }}>
                     <Select
-                      id="availableDevice"
                       showSearch
                       style={{ flex: 1 }}
-                      placeholder="Search to Select"
+                      placeholder="Select Device"
                       optionFilterProp="label"
-                      filterSort={(optionA, optionB) =>
-                        (optionA?.label ?? "").toLowerCase().localeCompare((optionB?.label ?? "").toLowerCase())
-                      }
                       options={availableDevices}
+                      disabled={inBrowser || isConnected}
                     />
-                   
                   </div>
                 </Form.Item>
               </Col>
             </Row>
             <Row gutter={[16, 16]}>
               <Col xs={24}>
-                <Button type="primary" id="execute">
+                <Button 
+                  type="primary" 
+                  onClick={startScanning}
+                  disabled={inBrowser || !isConnected || isScanning}
+                >
                   Execute
                 </Button>
-                <Button type="primary" id="stop" style={{ marginLeft: 10 }} danger>
-                      Stop
-                    </Button>
-                <Button style={{ marginLeft: 10 }} id="clear">
+                <Button 
+                  type="primary" 
+                  onClick={stopScanning}
+                  style={{ marginLeft: 10 }} 
+                  danger
+                  disabled={inBrowser || !isScanning}
+                >
+                  Stop
+                </Button>
+                <Button 
+                  style={{ marginLeft: 10 }} 
+                  onClick={clearData}
+                >
                   Clear
                 </Button>
-              <div style={{ float: "right" }}>
-                <Button type="primary" id="connectBtn" style={{ marginLeft: 10 }}>
-                      Connect
-                    </Button>
-                    <Button id="disconnect" type="primary" danger style={{ marginLeft: 10 }}>Disconnect</Button>
-                    </div>
+                <Button 
+                  type="dashed" 
+                  onClick={checkConnectionStatus}
+                  style={{ marginLeft: 10 }}
+                  disabled={inBrowser}
+                >
+                  Check Status
+                </Button>
+                <Button 
+                  type="default" 
+                  onClick={resetConnection}
+                  style={{ marginLeft: 10 }}
+                  disabled={inBrowser}
+                >
+                  Reset Connection
+                </Button>
+                <div style={{ float: "right" }}>
+                  <Button 
+                    type="primary" 
+                    onClick={connectReader}
+                    style={{ marginLeft: 10 }}
+                    disabled={inBrowser || isConnected}
+                  >
+                    Connect
+                  </Button>
+                  <Button 
+                    type="primary" 
+                    onClick={disconnectReader}
+                    danger 
+                    style={{ marginLeft: 10 }}
+                    disabled={inBrowser || !isConnected}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
               </Col>
             </Row>
           </Form>
         </Card>
 
         <Divider />
+        
+        {lastScannedTag && (
+          <Card title="Last Scanned Tag" style={{ marginBottom: 16 }}>
+            {getTagDisplay()}
+          </Card>
+        )}
 
-        <Card title="Result">
-          <div id="output" style={{ overflow: "hidden" }}></div>
+        <Card title="RFID Reader Output">
+          <div ref={outputRef} style={{ minHeight: 200, maxHeight: 400, overflow: "auto" }}></div>
         </Card>
       </div>
-     
     </>
   );
 };

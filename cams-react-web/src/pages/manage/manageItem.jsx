@@ -1,8 +1,52 @@
-import React, { useState, useEffect } from "react";
-import { Card, Form, Input, Button, Table, Space, Modal, Typography, Upload, message, Select, Spin, Tag, DatePicker, Divider, Popconfirm } from "antd";
-import { InboxOutlined, PlusOutlined, DeleteOutlined, FilePdfOutlined, FileImageOutlined, FileUnknownOutlined, DownloadOutlined } from "@ant-design/icons";
+import React, { useState, useRef, useEffect } from "react";
+import {
+  Table,
+  Button,
+  Form,
+  Input,
+  Upload,
+  message,
+  Modal,
+  Select,
+  Divider,
+  Row,
+  Col,
+  Space,
+  Typography,
+  Card,
+  Spin,
+  notification,
+  DatePicker,
+  Popconfirm,
+  Tag,
+  Checkbox
+} from "antd";
+import { 
+  UploadOutlined, 
+  PlusOutlined, 
+  SearchOutlined, 
+  SyncOutlined,
+  InboxOutlined,
+  DeleteOutlined, 
+  FilePdfOutlined, 
+  FileImageOutlined, 
+  FileUnknownOutlined, 
+  DownloadOutlined,
+  FilterOutlined
+} from "@ant-design/icons";
+import { useRfid } from "../../context/RfidContext";
 import { assetService } from "../../api";
 import axiosInstance from "../../api/axios";
+
+// Initialize Electron IPC Renderer if not in browser environment
+let inBrowser = true;
+let ipcRenderer = null;
+try {
+  ipcRenderer = window.require("electron").ipcRenderer;
+  inBrowser = false;
+} catch(e) {
+  inBrowser = true;
+}
 
 const { Title } = Typography;
 
@@ -34,6 +78,20 @@ const ManageItem = () => {
   const [selectedPartId, setSelectedPartId] = useState(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [rfidValue, setRfidValue] = useState('');
+  const [availableRfidDevices, setAvailableRfidDevices] = useState([]);
+  const rfidOutputRef = useRef(null);
+  // State for filtering items by state
+  const [stateFilters, setStateFilters] = useState({
+    available: true,    // A - Available
+    reserved: true,     // R - Reserved
+    onloan: true,       // L - On Loan
+    expired: true,      // E - Expired
+    broken: true,       // B - Broken
+    waitingrepair: true, // W - Waiting for Repair
+    destroyed: true,    // D - Destroyed
+    missing: true,      // M - Missing
+    shipping: true      // S - Shipping
+  });
 
   const showAddModal = () => {
     setEditingItem(null);
@@ -51,16 +109,23 @@ const ManageItem = () => {
     setIsModalVisible(true);
   };
 
-  const handleDelete = (key) => {
+  const handleDelete = (record) => {
     Modal.confirm({
       title: "Are you sure you want to delete this item?",
       content: "This action cannot be undone.",
       okText: "Yes",
       okType: "danger",
       cancelText: "No",
-      onOk: () => {
-        setItems(items.filter((item) => item.key !== key));
-        message.success("Item deleted successfully.");
+      onOk: async () => {
+        try {
+          setLoading(true);
+          await handleDeleteItemById(record.deviceId);
+          // Only update the UI if deletion was successful (handled in handleDeleteItemById)
+        } catch (error) {
+          console.error('Error in delete confirmation:', error);
+        } finally {
+          setLoading(false);
+        }
       },
     });
   };
@@ -196,7 +261,7 @@ const ManageItem = () => {
     } catch (error) {
       console.error('Error deleting RFID tag:', error);
       message.error(`Error deleting RFID tag: ${error.message}`);
-    } finally {
+    }finally{
       setLoading(false);
     }
   };
@@ -209,23 +274,149 @@ const ManageItem = () => {
     setRfidModalVisible(true);
   };
   
+  // Get global RFID context
+  const {
+    lastScannedTag,
+    connectReader,
+    startScanning,
+    stopScanning,
+    disconnectReader,
+    clearData,
+    setLogReference,
+    inBrowser
+  } = useRfid();
+  
+  // Track if RFID has been initialized for this modal session
+  const [rfidInitialized, setRfidInitialized] = useState(false);
+  
+  // RFID Scanner Integration - Use global context
+  useEffect(() => {
+    if (rfidModalVisible && !inBrowser && !rfidInitialized) {
+      // Set up the output reference for logging
+      if (rfidOutputRef.current) {
+        setLogReference(rfidOutputRef.current);
+      }
+      
+      // Mark as initialized to prevent multiple connection attempts
+      setRfidInitialized(true);
+      
+      // Attempt to connect only if not already connected
+      message.loading({ content: 'Preparing RFID reader...', key: 'rfidOperation' });
+      
+      // Start scanning if already connected, otherwise connect first
+      connectReader();
+      
+      // After a delay, start scanning
+      const scanTimer = setTimeout(() => {
+        startScanning();
+      }, 1000);
+      
+      // Return cleanup function
+      return () => {
+        clearTimeout(scanTimer);
+        // Don't disconnect automatically - let the global context manage connections
+        // Just stop scanning when modal closes
+        stopScanning();
+      };
+    }
+    
+    // Reset initialization state when modal closes
+    if (!rfidModalVisible) {
+      setRfidInitialized(false);
+    }
+  }, [rfidModalVisible, connectReader, startScanning, stopScanning, setLogReference, inBrowser, rfidInitialized]);
+  
+  // Update RFID value when tag is scanned
+  useEffect(() => {
+    if (lastScannedTag && lastScannedTag.TID) {
+      setRfidValue(lastScannedTag.TID);
+    }
+  }, [lastScannedTag]);
+  
   // Function to handle RFID modal cancel
   const handleRfidModalCancel = () => {
+    // Just stop scanning but don't disconnect - maintain the global connection
+    stopScanning();
     setRfidModalVisible(false);
     setSelectedDeviceId(null);
     setSelectedPartId(null);
     setRfidValue('');
   };
+
+
+
+  // Function to delete Item By Id
+  const handleDeleteItemById = async (deviceId) => {
+    try {
+      setLoading(true);
+      const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+      // Prepare data for API call
+      const requestData = {
+        token: token,
+        deviceID: deviceId
+      };
+
+      console.log('Sending delete item request with data:', requestData);
+
+      // Call your API to delete the item
+      const response = await assetService.deleteItemById(requestData);
+      if(response.success){
+        message.success('Item deleted successfully');
+        // Update the local state to remove the deleted item
+        setItems((prev) => prev.filter((item) => item.deviceId !== deviceId));
+        handleSort();
+      }else{
+        message.error('Failed to delete item: ' + (response.error?.description || 'Unknown error'));
+      }
+      return response;
+    }catch(error){
+      console.error('Error deleting item:', error);
+      message.error(`Error deleting item: ${error.message}`);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }
   
   // Function to handle RFID assignment
-  const handleRfidAssign = () => {
-    // In the future, this will contain the logic to assign the RFID to the part
-    // For now, just close the modal and show a message
-    message.success(`RFID assignment functionality will be implemented later`);
-    setRfidModalVisible(false);
-    setSelectedDeviceId(null);
-    setSelectedPartId(null);
-    setRfidValue('');
+  const handleRfidAssign = async () => {
+    if (!rfidValue) {
+      message.error('Please scan an RFID tag first');
+      return;
+    }
+
+   
+    
+    try {
+      setLoading(true);
+      const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+      // Prepare data for API call
+      const requestData = {
+        token: token,
+        deviceID: selectedDeviceId,
+        partID: selectedPartId,
+        RFID: rfidValue
+      };
+      
+      // Call your API to assign the RFID
+      const response = await assetService.assignRFID(requestData);
+      
+      if (response.success) {
+        message.success('RFID tag assigned successfully');
+       
+        handleSort();
+        
+        // Close modal and reset states
+        handleRfidModalCancel();
+      } else {
+        message.error(`Failed to assign RFID tag: ${response.error?.description || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error assigning RFID tag:', error);
+      message.error(`Error assigning RFID tag: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle confirmation of device creation before proceeding to file upload
@@ -710,6 +901,13 @@ const ManageItem = () => {
     setSelectedRoom(value);
     setItems([]); // Clear items when room changes
   };
+  
+  // Handle state filter checkbox changes
+  const handleStateFilterChange = (filterName, checked) => {
+    let newFilters = { ...stateFilters };
+    newFilters[filterName] = checked;
+    setStateFilters(newFilters);
+  };
 
   // Fetch devices by room ID
   const handleSort = async () => {
@@ -720,7 +918,27 @@ const ManageItem = () => {
     
     try {
       setLoading(true);
-      const response = await assetService.getItemsByRoom(selectedRoom);
+      
+      // Determine which state filters to use
+      let stateList = [];
+      if (stateFilters.available) stateList.push('A');
+      if (stateFilters.reserved) stateList.push('R');
+      if (stateFilters.onloan) stateList.push('L');
+      if (stateFilters.expired) stateList.push('E');
+      if (stateFilters.broken) stateList.push('B');
+      if (stateFilters.waitingrepair) stateList.push('W');
+      if (stateFilters.destroyed) stateList.push('D');
+      if (stateFilters.missing) stateList.push('M');
+      if (stateFilters.shipping) stateList.push('S');
+      
+      // If no filters are selected, don't send stateList (will fetch all items)
+      if (stateList.length === 0) {
+        console.log('No filters selected, fetching all items');
+      }
+      
+      console.log('Using state filters:', stateList.length > 0 ? stateList : 'All states');
+      
+      const response = await assetService.getItemsByRoom(selectedRoom, stateList);
             console.log('getItemsByRoom response:', response);
         // Log the raw unprocessed response data to see original structure
         console.log('Raw API response data:', response.data);
@@ -914,12 +1132,18 @@ const ManageItem = () => {
     {
       title: "Action",
       key: "action-col",
-      render: (_, record) => (
-        <Space size="middle">
-          <Button onClick={() => showEditModal(record)}>Edit</Button>
-          <Button danger onClick={() => handleDelete(record.key)}>Delete</Button>
-        </Space>
-      ),
+      render: (_, record) => {
+        // Don't show Edit and Delete buttons for destroyed items (state 'D')
+        if (record.state === 'D') {
+          return <Tag color="black">Destroyed</Tag>;
+        }
+        return (
+          <Space size="middle">
+            <Button onClick={() => showEditModal(record)}>Edit</Button>
+            <Button danger onClick={() => handleDelete(record)}>Delete</Button>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -941,34 +1165,95 @@ const ManageItem = () => {
     <div style={{ padding: 16 }}>
       <Card>
         <Title level={2}>Manage Item</Title>
-        <Space style={{ marginBottom: 16 }}>
-        <Select
-            placeholder="Select Campus"
-            style={{ width: 150 }}
-            onChange={handleCampusChange}
-            value={selectedCampus}
-            loading={loading}
-          >
-            {campuses.map(campus => (
-              <Select.Option key={campus.key} value={campus.key}>
-                {campus.shortName}
-              </Select.Option>
-            ))}
-          </Select>
-          <Select
-            placeholder="Select Room"
-            style={{ width: 150 }}
-            onChange={handleRoomChange}
-            value={selectedRoom}
-            loading={loading}
-            disabled={!selectedCampus}
-          >
-            {rooms.map((room) => (
-              <Select.Option key={room.key} value={room.roomId.toString()}>
-                {room.roomNumber} - {room.name}
-              </Select.Option>
-            ))}
-          </Select>
+        <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+          <Space>
+            <Select
+              placeholder="Select Campus"
+              style={{ width: 150 }}
+              onChange={handleCampusChange}
+              value={selectedCampus}
+              loading={loading}
+            >
+              {campuses.map(campus => (
+                <Select.Option key={campus.key} value={campus.key}>
+                  {campus.shortName}
+                </Select.Option>
+              ))}
+            </Select>
+            <Select
+              placeholder="Select Room"
+              style={{ width: 150 }}
+              onChange={handleRoomChange}
+              value={selectedRoom}
+              loading={loading}
+              disabled={!selectedCampus}
+            >
+              {rooms.map((room) => (
+                <Select.Option key={room.key} value={room.roomId.toString()}>
+                  {room.roomNumber} - {room.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Space>
+          
+          {/* State filter checkboxes */}
+          <Space>
+            <span style={{ marginRight: '8px' }}><FilterOutlined /> State filters:</span>
+            <Checkbox 
+              checked={stateFilters.available} 
+              onChange={(e) => handleStateFilterChange('available', e.target.checked)}
+            >
+              <Tag color="green">Available</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.reserved} 
+              onChange={(e) => handleStateFilterChange('reserved', e.target.checked)}
+            >
+              <Tag color="blue">Reserved</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.onloan} 
+              onChange={(e) => handleStateFilterChange('onloan', e.target.checked)}
+            >
+              <Tag color="cyan">On Loan</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.expired} 
+              onChange={(e) => handleStateFilterChange('expired', e.target.checked)}
+            >
+              <Tag color="volcano">Expired</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.broken} 
+              onChange={(e) => handleStateFilterChange('broken', e.target.checked)}
+            >
+              <Tag color="red">Broken</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.waitingrepair} 
+              onChange={(e) => handleStateFilterChange('waitingrepair', e.target.checked)}
+            >
+              <Tag color="gold">Wait for Repair</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.destroyed} 
+              onChange={(e) => handleStateFilterChange('destroyed', e.target.checked)}
+            >
+              <Tag color="black">Destroyed</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.missing} 
+              onChange={(e) => handleStateFilterChange('missing', e.target.checked)}
+            >
+              <Tag color="purple">Missing</Tag>
+            </Checkbox>
+            <Checkbox 
+              checked={stateFilters.shipping} 
+              onChange={(e) => handleStateFilterChange('shipping', e.target.checked)}
+            >
+              <Tag color="orange">Shipping</Tag>
+            </Checkbox>
+          </Space>
           <Button type="primary" onClick={handleSort}>
             Select
           </Button>
@@ -1407,27 +1692,59 @@ const ManageItem = () => {
         title="Assign RFID Tag"
         open={rfidModalVisible}
         onCancel={handleRfidModalCancel}
+        width={700}
         footer={[
           <Button key="cancel" onClick={handleRfidModalCancel}>
             Cancel
           </Button>,
-          <Button key="submit" type="primary" onClick={handleRfidAssign}>
+          <Button key="submit" type="primary" onClick={handleRfidAssign} disabled={!rfidValue}>
             Assign
           </Button>,
         ]}
       >
         <Spin spinning={loading}>
           <Form layout="vertical">
-            <Form.Item label="Device ID (deviceID)" style={{ marginBottom: '12px' }}>
-              <Input value={selectedDeviceId} disabled />
-            </Form.Item>
-            <Form.Item label="Device Part ID (devicePartID)" style={{ marginBottom: '12px' }}>
-              <Input value={selectedPartId} disabled />
-            </Form.Item>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Form.Item label="Device ID (deviceID)" style={{ marginBottom: '8px' }}>
+                  <Input value={selectedDeviceId} disabled />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item label="Device Part ID (devicePartID)" style={{ marginBottom: '8px' }}>
+                  <Input value={selectedPartId} disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            
+            {/* Simplified UI - Just a clear button */}
+            <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+              <Col xs={24} style={{ textAlign: 'right' }}>
+                <Button 
+                  onClick={() => {
+                    // Clear data via global context
+                    clearData();
+                    // Also clear the RFID value in this component
+                    setRfidValue('');
+                  }}
+                >
+                  Clear
+                </Button>
+              </Col>
+            </Row>
+            
+            {/* Hide debug output from UI but keep the ref for logging */}
+            <div
+              ref={rfidOutputRef}
+              style={{
+                display: 'none' // Hide the log from users
+              }}
+            ></div>
+            
             <Form.Item 
-              label="RFID Tag" 
+              label="RFID Tag (TID)" 
               style={{ marginBottom: '12px' }}
-              help="This field will be automatically filled by the RFID reader. Do not type manually."
+              help="This field will be automatically filled when an RFID tag is scanned. Do not type manually."
             >
               <Input
                 value={rfidValue}
@@ -1437,12 +1754,14 @@ const ManageItem = () => {
                 style={{ backgroundColor: '#f5f5f5' }}
               />
             </Form.Item>
+            
+            {/* Simplified instructions */}
             <div style={{ marginTop: '12px', color: '#1890ff' }}>
               <p><strong>Instructions:</strong></p>
               <ol>
                 <li>Place the RFID tag near the reader</li>
-                <li>Wait for the RFID value to appear in the field</li>
-                <li>Click 'Assign' to associate this RFID tag with the part</li>
+                <li>The TID will automatically appear in the field</li>
+                <li>Click 'Assign' to save</li>
               </ol>
             </div>
           </Form>

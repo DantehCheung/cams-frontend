@@ -201,13 +201,22 @@ export const deleteRoom = async (roomId) => {
 
 // Item/Device Call API Request
 
-export const getItemsByRoom = async (roomId) => {
+export const getItemsByRoom = async (roomId, stateList = []) => {
   try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-    const response = await axiosInstance.post('getitems', {
+    // Prepare request data with optional stateList
+    const requestData = {
       roomID: roomId,
       token: token
-    });
+    };
+    
+    // Only include stateList if it has values
+    if (Array.isArray(stateList) && stateList.length > 0) {
+      requestData.stateList = stateList;
+    }
+    
+    console.log('Sending getitems request with data:', requestData);
+    const response = await axiosInstance.post('getitems', requestData);
     
     console.log('API response from getItemsByRoom:', response.data);
     
@@ -255,6 +264,7 @@ export const getItemsByRoom = async (roomId) => {
     return { success: false, error: error.message };
   }
 }
+
 
 /**
  * Add a new device
@@ -352,6 +362,31 @@ export const addDevice = async (deviceData) => {
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Delete whole device API -> All device parts, device docs, device RFIDs will be deleted
+ */
+
+export const deleteItemById = async (deleteTargetData) => {
+
+  try{
+
+    const response = await axiosInstance.post('deleteitem', deleteTargetData);
+
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: response.data };
+
+  }catch(error){
+    console.log("Delete item(whole) error : ", error);
+    return { success: false, error: error.message };
+  }
+
+}
+
+
+
 
 /**
  * Update an existing device
@@ -479,6 +514,24 @@ export const deleteRFID = async (rfidData) => {
     return { success: false, error: response.data };
   } catch(error) {
     console.error('Delete RFID error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+
+/**
+ * Add/Assign new RFID tag to devicePart
+ */
+export const assignRFID = async (rfidData) => {
+  try{
+    const response = await axiosInstance.post("assignrfid", rfidData);
+    console.log('API response from addRFID:',response.data);
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: response.data };
+  }catch(error) {
+    console.error('Add RFID error:', error);
     return { success: false, error: error.message };
   }
 }
