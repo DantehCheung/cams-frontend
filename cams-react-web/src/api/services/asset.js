@@ -394,7 +394,8 @@ export const deleteItemById = async (deleteTargetData) => {
 export const updateDevice = async (deviceData) => {
   try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-    console.log('Updating device with data:', JSON.stringify(deviceData, null, 2));
+    // sensitive data
+    // console.log('Updating device with data:', JSON.stringify(deviceData, null, 2));
     
     // Use the new edititem endpoint
     const response = await axiosInstance.post('edititem', {

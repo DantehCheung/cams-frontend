@@ -104,8 +104,32 @@ const ManageItem = () => {
   };
 
   const showEditModal = (record) => {
-    setEditingItem(record);
-    form.setFieldsValue(record);
+    // Make a clean copy of the record to set as editingItem to avoid reference issues
+    const recordCopy = { ...record };
+    setEditingItem(recordCopy);
+    
+    // Reset file list for the edit modal
+    setFileList([]);
+    
+    // Ensure roomId is not undefined or null for the form
+    // This prevents issues with the roomId when updating multiple times
+    const roomIdValue = record.roomId ? record.roomId.toString() : '';
+    console.log('Setting roomId in form:', roomIdValue, 'from record:', record.roomId);
+    
+    // Set all fields including dates (now using Input instead of DatePicker for dates in edit mode)
+    const formValues = {
+      name: record.name,
+      price: record.price,
+      state: record.state,
+      remark: record.remark,
+      campus: record.campusId,
+      roomId: roomIdValue, // Use our safe roomId value
+      orderDate: record.orderDate || '',
+      arriveDate: record.arriveDate || '',
+      maintenanceDate: record.maintenanceDate || ''
+    };
+    
+    form.setFieldsValue(formValues);
     setIsModalVisible(true);
   };
 
@@ -465,23 +489,37 @@ const ManageItem = () => {
           deviceRFID: []
         }));
       
-      // Format dates
-      const orderDate = values.orderDate ? values.orderDate.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
-      const arriveDate = values.arriveDate ? values.arriveDate.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
-      const maintenanceDate = values.maintenanceDate ? values.maintenanceDate.format('YYYY-MM-DD') : null;
+      // Get dates directly from form values as strings (already in YYYY-MM-DD format from DatePicker)
+      const orderDate = values.orderDate || new Date().toISOString().split('T')[0];
+      const arriveDate = values.arriveDate || new Date().toISOString().split('T')[0];
+      const maintenanceDate = values.maintenanceDate || null;
+      const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
       
       if (editingItem) {
         // Handle update device
+        // Get roomID - ensure it's never null by using multiple fallbacks
+        let roomID = null;
+        if (values.roomId && values.roomId !== '') {
+          roomID = parseInt(values.roomId, 10);
+        } else if (editingItem.roomId && editingItem.roomId !== '') {
+          roomID = parseInt(editingItem.roomId, 10);
+        } else if (editingItem.roomID) {
+          roomID = parseInt(editingItem.roomID, 10);
+        }
+        
+        console.log('Using roomID for update:', roomID, 'from values.roomId:', values.roomId, 'and editingItem:', editingItem);
+        
         const deviceData = {
+          token: token,
+          deviceID: parseInt(editingItem.deviceId, 10), // Ensure deviceID is a number
           deviceName: values.name,
-          roomID: parseInt(values.roomId, 10), // Ensure roomID is a number
           price: parseFloat(values.price) || 0, // Ensure price is a number
           orderDate: orderDate,
           arriveDate: arriveDate,
           maintenanceDate: maintenanceDate,
+          roomID: roomID, // Use our carefully determined roomID
           state: values.state || 'A',
           remark: values.remark || '',
-          deviceID: parseInt(editingItem.deviceId, 10) // Ensure deviceID is a number
         };
         
         console.log('Editing device with ID:', deviceData.deviceID);
@@ -519,6 +557,7 @@ const ManageItem = () => {
               console.error('Error uploading files:', uploadError);
               message.error('Some files could not be uploaded');
             }
+            // Don't call handleSort() here - it reloads all devices and overwrites local state
           }
           
           // Update item in local state
@@ -529,7 +568,13 @@ const ManageItem = () => {
               state: values.state,
               price: values.price,
               remark: values.remark,
-              roomId: values.roomId,
+              // Ensure roomId is preserved
+              roomId: values.roomId || editingItem.roomId,
+              // Include campusId to ensure it's preserved
+              campusId: editingItem.campusId,
+              // Update dates
+              orderDate: orderDate,
+              arriveDate: arriveDate,
               maintenanceDate: maintenanceDate
             } : item
           );
@@ -540,6 +585,9 @@ const ManageItem = () => {
           setFileList([]);
           setDeviceParts([{ id: Date.now(), name: '' }]);
           form.resetFields();
+          
+          // Refresh page data from the server
+          handleSort();
         } else {
           message.error(`Failed to update device: ${response.error?.description || 'Unknown error'}`);
         }
@@ -1464,48 +1512,52 @@ const ManageItem = () => {
       </Card>
       <Modal
         title={editingItem ? "Edit Device" : "Add Device"}
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleOk}
         onCancel={handleCancel}
         confirmLoading={loading}
         width={700}
       >
         <Form form={form} layout="vertical">
-          <Form.Item label="Campus" name="campus"
-            rules={[{ required: true, message: 'Please choose a campus!' }]}>
-            <Select
-              placeholder="Select Campus"
-              style={{ width: '100%' }}
-              loading={loading}
-              onChange={(value) => {
-                form.setFieldsValue({ roomId: undefined });
-                fetchRoomsByCampus(value);
-              }}
-              disabled={editingItem}
-            >
-              {campuses.map((campus) => (
-                <Select.Option key={campus.key} value={campus.key}>
-                  {campus.shortName}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="roomId"
-            label="Room"
-            rules={[{ required: true, message: 'Please select a room!' }]}>
-            <Select
-              placeholder="Select Room"
-              style={{ width: '100%' }}
-              loading={loading}
-            >
-              {rooms.map((room) => (
-                <Select.Option key={room.key} value={room.roomId.toString()}>
-                  {room.roomNumber} - {room.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+          {/* Only show Campus and Room selection when adding a new device */}
+          {!editingItem && (
+            <>
+              <Form.Item label="Campus" name="campus"
+                rules={[{ required: true, message: 'Please choose a campus!' }]}>
+                <Select
+                  placeholder="Select Campus"
+                  style={{ width: '100%' }}
+                  loading={loading}
+                  onChange={(value) => {
+                    form.setFieldsValue({ roomId: undefined });
+                    fetchRoomsByCampus(value);
+                  }}
+                >
+                  {campuses.map((campus) => (
+                    <Select.Option key={campus.key} value={campus.key}>
+                      {campus.shortName}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item
+                name="roomId"
+                label="Room"
+                rules={[{ required: true, message: 'Please select a room!' }]}>
+                <Select
+                  placeholder="Select Room"
+                  style={{ width: '100%' }}
+                  loading={loading}
+                >
+                  {rooms.map((room) => (
+                    <Select.Option key={room.key} value={room.roomId.toString()}>
+                      {room.roomNumber} - {room.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </>
+          )}
           <Form.Item
             name="name"
             label="Device Name"
@@ -1545,28 +1597,61 @@ const ManageItem = () => {
           </div>
           
           <div style={{ display: 'flex', gap: '16px' }}>
-            <Form.Item
-              name="orderDate"
-              label="Order Date"
-              rules={[{ required: true, message: 'Please select a date!' }]}
-              style={{ flex: 1 }}    
-            >
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item
-              name="arriveDate"
-              label="Arrival Date"
-              style={{ flex: 1 }}
-            >
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item
-              name="maintenanceDate"
-              label="Maintenance Date"
-              style={{ flex: 1 }}
-            >
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
+            {editingItem ? (
+              /* In edit mode, use simple Input fields for dates to avoid DatePicker validation issues */
+              <>
+                <Form.Item
+                  name="orderDate"
+                  label="Order Date"
+                  style={{ flex: 1 }}    
+                  initialValue={editingItem.orderDate || ''}
+                >
+                  <Input placeholder="YYYY-MM-DD" style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item
+                  name="arriveDate"
+                  label="Arrival Date"
+                  style={{ flex: 1 }}
+                  initialValue={editingItem.arriveDate || ''}
+                >
+                  <Input placeholder="YYYY-MM-DD" style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item
+                  name="maintenanceDate"
+                  label="Maintenance Date"
+                  style={{ flex: 1 }}
+                  initialValue={editingItem.maintenanceDate || ''}
+                >
+                  <Input placeholder="YYYY-MM-DD" style={{ width: '100%' }} />
+                </Form.Item>
+              </>
+            ) : (
+              /* In add mode, use DatePicker as normal */
+              <>
+                <Form.Item
+                  name="orderDate"
+                  label="Order Date"
+                  rules={[{ required: true, message: 'Please select a date!' }]}
+                  style={{ flex: 1 }}    
+                >
+                  <DatePicker style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item
+                  name="arriveDate"
+                  label="Arrival Date"
+                  style={{ flex: 1 }}
+                >
+                  <DatePicker style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item
+                  name="maintenanceDate"
+                  label="Maintenance Date"
+                  style={{ flex: 1 }}
+                >
+                  <DatePicker style={{ width: '100%' }} />
+                </Form.Item>
+              </>
+            )}
           </div>
           
           <Form.Item
@@ -1576,115 +1661,145 @@ const ManageItem = () => {
             <Input.TextArea rows={3} />
           </Form.Item>
           
-          <Divider orientation="left">Device Parts</Divider>
-          
-          {deviceParts.map((part, index) => (
-            <div key={part.id} style={{ display: 'flex', marginBottom: '8px', alignItems: 'baseline' }}>
-              <div style={{ flex: 1, marginRight: '8px' }}>
-                <Input
-                  placeholder={`Enter part name ${index + 1}`}
-                  value={part.name}
-                  onChange={(e) => updatePartName(part.id, e.target.value)}
-                />
-              </div>
-              <Popconfirm
-                title="Are you sure you want to remove this part?"
-                onConfirm={() => removePart(part.id)}
-                okText="Yes"
-                cancelText="No"
-                disabled={deviceParts.length <= 1}
+          {/* Only show Device Parts section when adding a new device */}
+          {!editingItem && (
+            <>
+              <Divider orientation="left">Device Parts</Divider>
+              
+              {deviceParts.map((part, index) => (
+                <div key={part.id} style={{ display: 'flex', marginBottom: '8px', alignItems: 'baseline' }}>
+                  <div style={{ flex: 1, marginRight: '8px' }}>
+                    <Input
+                      placeholder={`Enter part name ${index + 1}`}
+                      value={part.name}
+                      onChange={(e) => updatePartName(part.id, e.target.value)}
+                    />
+                  </div>
+                  <Popconfirm
+                    title="Are you sure you want to remove this part?"
+                    onConfirm={() => removePart(part.id)}
+                    okText="Yes"
+                    cancelText="No"
+                    disabled={deviceParts.length <= 1}
+                  >
+                    <Button 
+                      type="text" 
+                      danger 
+                      icon={<DeleteOutlined />} 
+                      disabled={deviceParts.length <= 1}
+                    />
+                  </Popconfirm>
+                </div>
+              ))}
+              
+              <Button 
+                type="dashed" 
+                onClick={addDevicePart} 
+                block 
+                icon={<PlusOutlined />}
+                style={{ marginBottom: '16px' }}
               >
-                <Button 
-                  type="text" 
-                  danger 
-                  icon={<DeleteOutlined />} 
-                  disabled={deviceParts.length <= 1}
-                />
-              </Popconfirm>
-            </div>
-          ))}
+                Add Part
+              </Button>
+            </>
+          )}
           
-          <Button 
-            type="dashed" 
-            onClick={addDevicePart} 
-            block 
-            icon={<PlusOutlined />}
-            style={{ marginBottom: '16px' }}
-          >
-            Add Part
-          </Button>
-          
-          <Form.Item label="Upload Documents" name="files">
-            <Upload.Dragger
-              name="files"
-              multiple={true}
-              fileList={fileList}
-              beforeUpload={() => false} // Prevent auto upload
-              onChange={handleFileChange}
-              disabled={!fileUploadEnabled || uploadInProgress}
-            >
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              {fileUploadEnabled ? (
-                <>
-                  <p className="ant-upload-text">Click or drag files to this area to upload</p>
-                  <p className="ant-upload-hint">
-                    Files will be uploaded for device ID: {createdDeviceId}<br/>
-                    You can add multiple files before clicking "Finish"
-                  </p>
-                </>
-              ) : deviceCreated ? (
-                <p className="ant-upload-text">Please click 'Confirm' to enable file upload</p>
-              ) : (
-                <>
-                  <p className="ant-upload-text">First create the device, then upload files</p>
-                  <p className="ant-upload-hint">
-                    Upload will be enabled after device creation
-                  </p>
-                </>
-              )}
-            </Upload.Dragger>
+          {/* Show different upload section based on mode */}
+          {editingItem ? (
+            <Form.Item label="Upload Additional Documents" name="files">
+              <Upload.Dragger
+                name="files"
+                multiple={true}
+                fileList={fileList}
+                beforeUpload={() => false} // Prevent auto upload
+                onChange={handleFileChange}
+                disabled={uploadInProgress}
+              >
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined />
+                </p>
+                <p className="ant-upload-text">Click or drag files to this area to upload additional documents</p>
+                <p className="ant-upload-hint">
+                  Files will be added to device ID: {editingItem.deviceId}
+                </p>
+              </Upload.Dragger>
+            </Form.Item>
+          ) : (
+            <Form.Item label="Upload Documents" name="files">
+              <Upload.Dragger
+                name="files"
+                multiple={true}
+                fileList={fileList}
+                beforeUpload={() => false} // Prevent auto upload
+                onChange={handleFileChange}
+                disabled={!fileUploadEnabled || uploadInProgress}
+              >
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined />
+                </p>
+                {fileUploadEnabled ? (
+                  <>
+                    <p className="ant-upload-text">Click or drag files to this area to upload</p>
+                    <p className="ant-upload-hint">
+                      Files will be uploaded for device ID: {createdDeviceId}<br/>
+                      You can add multiple files before clicking "Finish"
+                    </p>
+                  </>
+                ) : deviceCreated ? (
+                  <p className="ant-upload-text">Please click 'Confirm' to enable file upload</p>
+                ) : (
+                  <>
+                    <p className="ant-upload-text">First create the device, then upload files</p>
+                    <p className="ant-upload-hint">
+                      Upload will be enabled after device creation
+                    </p>
+                  </>
+                )}
+              </Upload.Dragger>
+            </Form.Item>
+          )}
+          {/* Form Buttons */}
+          <Form.Item>
+            {deviceCreated ? (
+              <>
+                <Button type="primary" onClick={handleConfirmDevice} disabled={fileUploadEnabled}>
+                  Confirm
+                </Button>
+                {fileUploadEnabled && (
+                  <>
+                    <Button 
+                      type="default" 
+                      onClick={uploadCurrentBatch} 
+                      loading={uploadInProgress} 
+                      style={{ marginLeft: 8 }}
+                      disabled={fileList.length === 0}
+                    >
+                      Upload Current Batch
+                    </Button>
+                    <Button 
+                      type="primary" 
+                      onClick={handleOk} 
+                      loading={uploadInProgress} 
+                      style={{ marginLeft: 8 }}
+                      disabled={fileList.length === 0}
+                    >
+                      Finish {fileList.length > 0 ? `& Upload ${fileList.length} File${fileList.length !== 1 ? 's' : ''}` : ''}
+                    </Button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <Button type="primary" onClick={handleOk} loading={loading}>
+                  {editingItem ? "Update" : "Add"}
+                </Button>
+                <Button onClick={handleCancel} style={{ marginLeft: 8 }}>
+                  Cancel
+                </Button>
+              </>
+            )}
           </Form.Item>
         </Form>
-        <Form.Item>
-          {deviceCreated ? (
-            <>
-              <Button type="primary" onClick={handleConfirmDevice} disabled={fileUploadEnabled}>
-                Confirm
-              </Button>
-              {fileUploadEnabled && (
-                <>
-                  <Button 
-                    type="default" 
-                    onClick={uploadCurrentBatch} 
-                    loading={uploadInProgress} 
-                    style={{ marginLeft: 8 }}
-                    disabled={fileList.length === 0}
-                  >
-                    Upload Current Batch
-                  </Button>
-                  <Button 
-                    type="primary" 
-                    onClick={handleOk} 
-                    loading={uploadInProgress} 
-                    style={{ marginLeft: 8 }}
-                    disabled={fileList.length === 0}
-                  >
-                    Finish {fileList.length > 0 ? `& Upload ${fileList.length} File${fileList.length !== 1 ? 's' : ''}` : ''}
-                  </Button>
-                </>
-              )}
-            </>
-          ) : (
-            <Button type="primary" onClick={handleOk} loading={loading}>
-              {editingItem ? "Update" : "Add"}
-            </Button>
-          )}
-          <Button onClick={handleCancel} style={{ marginLeft: 8 }}>
-            Cancel
-          </Button>
-        </Form.Item>
       </Modal>
 
       {/* RFID Assignment Modal */}
