@@ -17,42 +17,10 @@ export const AuthProvider = ({ children }) => {
     isLoading: true,
   });
 
-  // Check if user is already logged in via refresh token when app loads
+  // Initialize auth state when component loads
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // Try to refresh token on startup to check if user is authenticated
-        const response = await axiosInstance.post('/api/refresh-token', {}, {
-          withCredentials: true, // Important for cookies
-        });
-        
-        if (response.data && !response.data.errorCode) {
-          // Set the new auth data in memory
-          const { token, accessLevel, accessPage, firstName, lastName, lastLoginIp } = response.data;
-          
-          // Update auth state with the new token and user info
-          setAuthState({
-            token,
-            accessLevel: Number(accessLevel),
-            accessPage: Number(accessPage),
-            user: { firstName, lastName, lastLoginIp },
-            isAuthenticated: true,
-            isLoading: false,
-          });
-          
-          // Set token in axios default headers
-          axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        } else {
-          // Not authenticated
-          setAuthState(prev => ({ ...prev, isLoading: false }));
-        }
-      } catch (error) {
-        console.error("Error initializing auth:", error);
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-      }
-    };
-
-    initializeAuth();
+    // Set loading to false on initial load
+    setAuthState(prev => ({ ...prev, isLoading: false }));
   }, []);
 
   // Login function - stores token in memory only
@@ -101,6 +69,52 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Card Login function - uses card ID to authenticate
+  const loginByCard = async (cardId) => {
+    try {
+      // Configure to handle cookies
+      const response = await axiosInstance.post('loginbycard', { CardID: cardId }, {
+        withCredentials: true, // Important for receiving HTTP-only cookies
+      });
+      
+      if (response.data && !response.data.errorCode) {
+        const { token, accessLevel, accessPage, firstName, lastName, lastLoginIp } = response.data;
+        const numericAccessLevel = Number(accessLevel);
+        
+        // Store the access token in memory only
+        setAuthState({
+          token,
+          accessLevel: numericAccessLevel,
+          accessPage: Number(accessPage),
+          user: { firstName, lastName, lastLoginIp },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        
+        // Set token for API requests
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        // Determine redirect path based on user role
+        let redirectPath = '/home';
+        
+        // If user is a student, redirect to borrow page
+        if (numericAccessLevel === ACCESS_LEVELS.STUDENT) {
+          redirectPath = '/br/borrow';
+        }
+        
+        return { 
+          success: true,
+          redirectPath: redirectPath 
+        };
+      } else {
+        return { success: false, error: response.data };
+      }
+    } catch (error) {
+      console.error("Card login error:", error);
+      return { success: false, error };
+    }
+  };
+
   // Logout function
   const logout = async () => {
     try {
@@ -125,33 +139,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Check for token expiration and refresh if needed
-  const refreshToken = async () => {
-    try {
-      const response = await axiosInstance.post('/api/refresh-token', {}, {
-        withCredentials: true,
-      });
-      
-      if (response.data && !response.data.errorCode) {
-        const { token } = response.data;
-        
-        // Update only the token in the auth state
-        setAuthState(prev => ({
-          ...prev,
-          token,
-        }));
-        
-        // Update axios headers
-        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Token refresh error:", error);
-      return false;
-    }
-  };
+
 
   // Permission check functions
   const hasRolePermission = (requiredLevel) => {
@@ -236,8 +224,8 @@ export const AuthProvider = ({ children }) => {
   const authContextValue = {
     ...authState,
     login,
+    loginByCard,
     logout,
-    refreshToken,
     hasPermission,
     isAuthenticated,
     getAccessLevel,

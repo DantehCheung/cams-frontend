@@ -15,7 +15,7 @@ import {
   ProFormText,
 } from '@ant-design/pro-components';
 import { Button, Divider, Space, Tabs, message, theme } from 'antd';
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import Video from "../../assets/video/login.mp4"
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -30,10 +30,92 @@ const iconStyles = {
 
 const Page = () => {
   const [loginType, setLoginType] = useState('account');
+  const [cardId, setCardId] = useState('');
+  const [isCardReaderActive, setIsCardReaderActive] = useState(false);
   const { token } = theme.useToken();
   const navigate = useNavigate();
 
-  const { login } = useAuth();
+  const { login, loginByCard } = useAuth();
+  
+  // Function to handle card ID input from external reader
+  useEffect(() => {
+    // Only activate the card reader when in card login mode
+    if (loginType !== 'card') return;
+    
+    // Function to handle keydown events for card reader input
+    const handleCardReaderInput = (event) => {
+      if (!isCardReaderActive) return;
+      
+      // If it's a digit, add it to the cardId state
+      if (/^\d$/.test(event.key)) {
+        setCardId(prev => {
+          const newCardId = prev + event.key;
+          // Auto-submit if we've reached 10 digits (common card ID length)
+          if (newCardId.length === 10) {
+            console.log('Card scan complete, auto-submitting:', newCardId);
+            // Use setTimeout to ensure state is updated before submission
+            setTimeout(() => handleCardSubmit(newCardId), 100);
+          }
+          return newCardId;
+        });
+      }
+      
+      // Enter key signals end of card read regardless of length
+      if (event.key === 'Enter' && cardId.length > 0) {
+        console.log('Card scan complete (Enter pressed), attempting login with:', cardId);
+        // Automatically submit the card ID immediately
+        handleCardSubmit(cardId);
+      }
+    };
+    
+    // Add the event listener
+    window.addEventListener('keydown', handleCardReaderInput);
+    
+    // Clean up the event listener
+    return () => {
+      window.removeEventListener('keydown', handleCardReaderInput);
+    };
+  }, [loginType, isCardReaderActive, cardId]);
+  
+  // Auto-focus the card input field when switching to card login
+  useEffect(() => {
+    if (loginType === 'card') {
+      setIsCardReaderActive(true);
+      // Clear any previous card ID when switching to card login
+      setCardId('');
+    }
+  }, [loginType]);
+  
+  // Function to handle card login submission
+  const handleCardSubmit = async (id) => {
+    try {
+      console.log('Attempting login with card ID:', id);
+      
+      // Use the loginByCard method from AuthContext
+      const result = await loginByCard(id);
+      
+      if (result.success) {
+        console.log('Card login successful');
+        message.success('Login successful!');
+        
+        // Use the redirectPath from the login result
+        const redirectTo = result.redirectPath || '/home';
+        console.log(`Redirecting to: ${redirectTo}`);
+        navigate(redirectTo);
+      } else {
+        // Handle error from login attempt
+        console.log('Card login failed:', result.error);
+        const errorMessage = result.error?.description || 'Card login failed - Invalid card';
+        message.error(errorMessage);
+        // Reset card ID for another attempt
+        setCardId('');
+      }
+    } catch (error) {
+      console.error('Card login error:', error);
+      message.error('An error occurred during card login. Please try again.');
+      setCardId('');
+    }
+  };
 
   const handleSubmit = async (values) => {
     try {
@@ -83,11 +165,24 @@ const Page = () => {
     }}
     subTitle="Campus Asset Management System"
     onFinish={async (values) => {
-      await handleSubmit(values);
+      if (loginType === 'card') {
+        // For card login, always use the cardId from state, not from the form
+        if (cardId) {
+          await handleCardSubmit(cardId);
+        } else {
+          message.info('Please scan your card first');
+          return false;
+        }
+      } else {
+        // For regular login, use the form values
+        await handleSubmit(values);
+      }
       return true;
     }}
     submitter={{
       searchConfig: { submitText: 'Login' },
+      render: (_, dom) => loginType === 'card' ? null : dom,
+      resetButtonProps: { style: { display: 'none' } }, // Hide the reset button
     }}
     activityConfig={{
       style: {
@@ -129,11 +224,25 @@ const Page = () => {
   <Tabs
   centered
   activeKey={loginType}
-  onChange={(activeKey) => setLoginType(activeKey)}
+  onChange={(activeKey) => {
+    setLoginType(activeKey);
+    // Reset card ID when changing tabs
+    if (activeKey === 'card') {
+      setCardId('');
+      // Automatically focus on card input when switching to card tab
+      setIsCardReaderActive(true);
+    } else {
+      setIsCardReaderActive(false);
+    }
+  }}
   items={[
     {
       key: 'account',
       label: 'Account Login',
+    },
+    {
+      key: 'card',
+      label: 'Card Login',
     },
   ]}
 />
@@ -184,12 +293,47 @@ const Page = () => {
         />
       </>
     )}
-    <div style={{ marginBlockEnd: 24 }}>
-      <ProFormCheckbox noStyle name="autoLogin">
-        Auto Login
-      </ProFormCheckbox>
-      <a style={{ float: 'right' }}>Forgot Password</a>
-    </div>
+    
+    {loginType === 'card' && (
+      <>
+        <ProFormText
+          name="cardId"
+          fieldProps={{
+            size: 'large',
+            prefix: (
+              <LockOutlined
+                style={{
+                  color: token.colorText,
+                }}
+                className={'prefixIcon'}
+              />
+            ),
+            value: cardId,
+            disabled: true, // Field is locked as per requirements
+            onFocus: () => setIsCardReaderActive(true),
+            onBlur: () => setIsCardReaderActive(false),
+          }}
+          placeholder={'Please scan your card...'}
+          // Make sure the form gets the current cardId value
+          initialValue={cardId}
+          getValueFromEvent={() => cardId}
+        />
+        {/* Card login now uses the form's submit button instead of a separate button */}
+        <div style={{ textAlign: 'center', fontSize: '12px', color: token.colorTextSecondary }}>
+          {isCardReaderActive ? 
+            `Card reader active - ${cardId ? `Reading: ${cardId}` : 'waiting for scan...'}` : 
+            'Click the field to activate card reader'}
+        </div>
+      </>
+    )}
+    {loginType === 'account' && (
+      <div style={{ marginBlockEnd: 24 }}>
+        <ProFormCheckbox noStyle name="autoLogin">
+          Auto Login
+        </ProFormCheckbox>
+        <a style={{ float: 'right' }}>Forgot Password</a>
+      </div>
+    )}
   </LoginFormPage>
   </div>
   );
