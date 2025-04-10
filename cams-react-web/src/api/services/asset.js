@@ -605,3 +605,46 @@ export const deleteDeviceDoc = async (deviceId, docPath) => {
     return { success: false, error: error.message || 'Unknown error' };
   }
 }
+
+/**
+ * Update an item part's name and status
+ * @param {Object} partData - The part data to update
+ * @param {string} partData.deviceID - The device ID
+ * @param {string} partData.partID - The part ID
+ * @param {string} partData.partName - The new part name
+ * @param {string} partData.state - The part state (A for Available, D for Destroyed)
+ * @returns {Promise} - A promise that resolves with the API response
+ */
+export const updateItemPart = async (partData) => {
+  try {
+    // Extract the token from the Authorization header
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    
+    // Prepare the request payload
+    const payload = {
+      token,
+      deviceID: partData.deviceID,
+      partID: partData.partID,
+      partName: partData.partName,
+      state: partData.state
+    };
+    
+    // Make the API request
+    const response = await axiosInstance.post('updateitempart', payload);
+    
+    console.log('Update item part response:', response.data);
+    
+    // Return response with success flag
+    return { 
+      success: true, 
+      status: response.data.status 
+    };
+  } catch(error) {
+    console.error('Error updating item part:', error);
+    return { 
+      success: false, 
+      error: error.message || 'Unknown error', 
+      status: false 
+    };
+  }
+}

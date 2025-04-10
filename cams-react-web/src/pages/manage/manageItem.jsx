@@ -19,7 +19,8 @@ import {
   DatePicker,
   Popconfirm,
   Tag,
-  Checkbox
+  Checkbox,
+  Radio
 } from "antd";
 import { 
   UploadOutlined, 
@@ -75,9 +76,18 @@ const ManageItem = () => {
   const [expandedRowKey, setExpandedRowKey] = useState(null);
   // State for RFID assignment modal
   const [rfidModalVisible, setRfidModalVisible] = useState(false);
-  const [selectedPartId, setSelectedPartId] = useState(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+  const [selectedPartId, setSelectedPartId] = useState(null);
   const [rfidValue, setRfidValue] = useState('');
+  
+  // States for Edit Part modal
+  const [editPartModalVisible, setEditPartModalVisible] = useState(false);
+  const [editPartDeviceId, setEditPartDeviceId] = useState(null);
+  const [editPartPartId, setEditPartPartId] = useState(null);
+  const [editPartLoading, setEditPartLoading] = useState(false);
+  const [editPartDeviceName, setEditPartDeviceName] = useState('');
+  const [editPartDeviceStatus, setEditPartDeviceStatus] = useState('');
+  const [editPartForm] = Form.useForm();
   const [availableRfidDevices, setAvailableRfidDevices] = useState([]);
   const rfidOutputRef = useRef(null);
   // State for filtering items by state
@@ -796,7 +806,8 @@ const ManageItem = () => {
       return false;
     }
   };
-    
+  
+  // Handle manual device ID submission
   const handleManualDeviceIdSubmit = async () => {
     if (!manualDeviceId || manualDeviceId.trim() === '') {
       message.error('Please enter a valid device ID');
@@ -820,6 +831,120 @@ const ManageItem = () => {
     
     setManualDeviceIdModalVisible(false);
     setManualDeviceId('');
+  };
+  
+  // Show manual device ID modal
+  const showManualDeviceIdModal = () => {
+    setManualDeviceIdModalVisible(true);
+  };
+  
+  // Show Edit Part modal
+  const showEditPartModal = (deviceId, partId, partName, status, deviceName = '', deviceStatus = '') => {
+    console.log('Opening Edit Part modal with:', { deviceId, partId, partName, status, deviceName, deviceStatus });
+    setEditPartDeviceId(deviceId);
+    setEditPartPartId(partId);
+    setEditPartDeviceName(deviceName);
+    setEditPartDeviceStatus(deviceStatus);
+    
+    // Reset and then set form values with a slight delay to ensure the modal is visible first
+    setTimeout(() => {
+      editPartForm.resetFields();
+      editPartForm.setFieldsValue({
+        partName: partName || ''
+      });
+      console.log('Form values set:', { partName });
+    }, 100);
+    
+    setEditPartModalVisible(true);
+  };
+  
+  // Handle Edit Part submission
+  const handleEditPart = async () => {
+    try {
+      // Validate form fields
+      const values = await editPartForm.validateFields();
+      setEditPartLoading(true);
+      
+      console.log('Updating item part with:', {
+        deviceID: editPartDeviceId,
+        partID: editPartPartId,
+        partName: values.partName,
+        state: 'A' // Default to 'Available' state when updating name
+      });
+      
+      // Make API call to update item part
+      const result = await assetService.updateItemPart({
+        deviceID: editPartDeviceId,
+        partID: editPartPartId,
+        partName: values.partName,
+        state: 'A' // Default to 'Available' state when updating name
+      });
+      
+      if (result.status) {
+        message.success('Item part updated successfully');
+        setEditPartModalVisible(false);
+        handleSort(); // Refresh the device list
+      } else {
+        message.error('Failed to update item part');
+      }
+    } catch (error) {
+      console.error('Error updating item part:', error);
+      if (error.errorFields) {
+        message.error('Please fill in all required fields');
+      } else {
+        message.error('An error occurred while updating the item part');
+      }
+    } finally {
+      setEditPartLoading(false);
+    }
+  };
+  
+  // Handle Destroy Part action
+  const handleDestroyPart = async () => {
+    try {
+      Modal.confirm({
+        title: 'Confirm Destruction',
+        content: 'Are you sure you want to mark this part as destroyed? This action cannot be undone.',
+        okText: 'Yes, Destroy',
+        okType: 'danger',
+        cancelText: 'Cancel',
+        onOk: async () => {
+          setEditPartLoading(true);
+          
+          // Get the current part name from the form
+          const values = await editPartForm.validateFields();
+          
+          console.log('Marking part as destroyed:', {
+            deviceID: editPartDeviceId,
+            partID: editPartPartId,
+            partName: values.partName,
+            state: 'D' // 'D' for Destroyed
+          });
+          
+          // Make API call to update item part status to Destroyed
+          const result = await assetService.updateItemPart({
+            deviceID: editPartDeviceId,
+            partID: editPartPartId,
+            partName: values.partName,
+            state: 'D' // 'D' for Destroyed
+          });
+          
+          if (result.status) {
+            message.success('Item part marked as destroyed');
+            setEditPartModalVisible(false);
+            handleSort(); // Refresh the device list
+          } else {
+            message.error('Failed to mark item part as destroyed');
+          }
+          
+          setEditPartLoading(false);
+        },
+      });
+    } catch (error) {
+      console.error('Error destroying item part:', error);
+      message.error('An error occurred while processing your request');
+      setEditPartLoading(false);
+    }
   };
   
   // Close the manual device ID modal
@@ -1411,25 +1536,73 @@ const ManageItem = () => {
                                 const rfid = record.rfids[0];
                                 // Use actual properties from the RFID data
                                 return (
-                                  <Button 
-                                    type="primary" 
-                                    size="small"
-                                    onClick={() => showRfidAssignModal(rfid.deviceID, rfid.devicePartID)}
-                                  >
-                                    Assign RFID
-                                  </Button>
+                                  <Space>
+                                    <Button 
+                                      type="primary" 
+                                      size="small"
+                                      onClick={() => {
+                                        setSelectedDeviceId(rfid.deviceID);
+                                        setSelectedPartId(rfid.devicePartID);
+                                        setRfidModalVisible(true);
+                                      }}
+                                    >
+                                      Assign RFID
+                                    </Button>
+                                    <Button 
+                                      type="default" 
+                                      size="small"
+                                      onClick={() => {
+                                        // Log the click to debug
+                                        console.log('Edit Part button clicked with:', {
+                                          deviceId: rfid.deviceID,
+                                          partId: rfid.devicePartID,
+                                          name: record.name,
+                                          status: record.status,
+                                          deviceName: record.device?.name || '',
+                                          deviceStatus: record.device?.state || ''
+                                        });
+                                        showEditPartModal(rfid.deviceID, rfid.devicePartID, record.name, record.status, record.device?.name, record.device?.state);
+                                      }}
+                                    >
+                                      Edit Part
+                                    </Button>
+                                  </Space>
                                 );
                               } else {
                                 // Extract deviceId and partId from the record key as fallback
                                 const [deviceId, devicePartId] = record.key.split('-');
                                 return (
-                                  <Button 
-                                    type="primary" 
-                                    size="small"
-                                    onClick={() => showRfidAssignModal(deviceId, devicePartId)}
-                                  >
-                                    Assign RFID
-                                  </Button>
+                                  <Space>
+                                    <Button 
+                                      type="primary" 
+                                      size="small"
+                                      onClick={() => {
+                                        setSelectedDeviceId(deviceId);
+                                        setSelectedPartId(devicePartId);
+                                        setRfidModalVisible(true);
+                                      }}
+                                    >
+                                      Assign RFID
+                                    </Button>
+                                    <Button 
+                                      type="default" 
+                                      size="small"
+                                      onClick={() => {
+                                        // Log the click to debug
+                                        console.log('Edit Part button clicked with:', {
+                                          deviceId,
+                                          partId: devicePartId,
+                                          name: record.name,
+                                          status: record.status,
+                                          deviceName: record.device?.name || '',
+                                          deviceStatus: record.device?.state || ''
+                                        });
+                                        showEditPartModal(deviceId, devicePartId, record.name, record.status, record.device?.name, record.device?.state);
+                                      }}
+                                    >
+                                      Edit Part
+                                    </Button>
+                                  </Space>
                                 );
                               }
                             }
@@ -1900,6 +2073,79 @@ const ManageItem = () => {
           onChange={(e) => setManualDeviceId(e.target.value)}
           style={{ marginBottom: '15px' }}
         />
+      </Modal>
+      
+      {/* Edit Part Modal */}
+      <Modal
+        title="Edit Part"
+        open={editPartModalVisible}
+        onOk={handleEditPart}
+        onCancel={() => setEditPartModalVisible(false)}
+        confirmLoading={editPartLoading}
+        destroyOnClose={true}
+        mask={true}
+        maskClosable={false}
+        zIndex={1001}
+      >
+        {/* Display device information */}
+        {(editPartDeviceName || editPartDeviceStatus) && (
+          <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+            <div style={{ marginBottom: '8px' }}>
+              <strong>Device Info:</strong>
+            </div>
+            {editPartDeviceName && (
+              <div>
+                <strong>Device Name:</strong> {editPartDeviceName}
+              </div>
+            )}
+            {editPartDeviceStatus && (
+              <div>
+                <strong>Device Status:</strong> {
+                  editPartDeviceStatus === 'A' ? 'Available' :
+                  editPartDeviceStatus === 'R' ? 'Reserved' :
+                  editPartDeviceStatus === 'L' ? 'On Loan' :
+                  editPartDeviceStatus === 'E' ? 'Expired' :
+                  editPartDeviceStatus === 'B' ? 'Broken' :
+                  editPartDeviceStatus === 'W' ? 'Waiting for Repairs' :
+                  editPartDeviceStatus === 'D' ? 'Destroyed' :
+                  editPartDeviceStatus === 'M' ? 'Missing' :
+                  editPartDeviceStatus === 'S' ? 'Shipping' :
+                  editPartDeviceStatus
+                }
+              </div>
+            )}
+            <div style={{ marginTop: '8px' }}>
+              <strong>Device ID:</strong> {editPartDeviceId}, <strong>Part ID:</strong> {editPartPartId}
+            </div>
+          </div>
+        )}
+        <Form 
+          form={editPartForm} 
+          layout="vertical" 
+          preserve={false}
+          initialValues={{ partName: '' }}
+        >
+          <Form.Item 
+            name="partName" 
+            label="Part Name"
+            rules={[{ required: true, message: 'Please enter part name' }]}
+          >
+            <Input placeholder="Enter part name" />
+          </Form.Item>
+          
+          {/* Destroy button outside of form item */}
+          <div style={{ marginTop: '20px' }}>
+            <Button 
+              danger 
+              type="primary" 
+              onClick={() => handleDestroyPart()}
+              icon={<DeleteOutlined />}
+              style={{ width: '100%' }}
+            >
+              Mark as Destroyed
+            </Button>
+          </div>
+        </Form>
       </Modal>
     </div>
   );
