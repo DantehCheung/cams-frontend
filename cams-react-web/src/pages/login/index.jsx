@@ -296,8 +296,9 @@ const Page = () => {
     
     {loginType === 'card' && (
       <>
-        <ProFormText
+        <ProFormText.Password
           name="cardId"
+          hidden={true} // Add this line to hide the field
           fieldProps={{
             size: 'large',
             prefix: (
@@ -321,7 +322,7 @@ const Page = () => {
         {/* Card login now uses the form's submit button instead of a separate button */}
         <div style={{ textAlign: 'center', fontSize: '12px', color: token.colorTextSecondary }}>
           {isCardReaderActive ? 
-            `Card reader active - ${cardId ? `Reading: ${cardId}` : 'waiting for scan...'}` : 
+            `Card reader active - ${cardId ? `Reading Success` : 'waiting for scan...'}` : 
             'Click the field to activate card reader'}
         </div>
       </>

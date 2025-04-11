@@ -63,36 +63,3 @@ export const getUserInfo = () => {
   return null;
 };
 
-/**
- * Get dashboard data for the home page
- * @returns {Object} Mock dashboard data
- */
-export const getData = () => {
-  // Return mock data structure that matches what the home page expects
-  return {
-    data: {
-      detailedAssetTableData: [
-        {
-          campus: 'Main Campus',
-          item: 'Laptop',
-          part: 'Computer',
-          price: 1200.00,
-          purchaseDate: '2025-01-15',
-          quantity: 5,
-          room: 'IT Lab',
-          uniqueId: 'LP-2025-001'
-        },
-        {
-          campus: 'Science Building',
-          item: 'Projector',
-          part: 'AV Equipment',
-          price: 800.00,
-          purchaseDate: '2024-12-10',
-          quantity: 2,
-          room: 'Lecture Hall',
-          uniqueId: 'PR-2024-005'
-        }
-      ]
-    }
-  };
-};
