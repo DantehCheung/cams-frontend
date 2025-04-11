@@ -93,7 +93,18 @@ const ManageItem = () => {
   const [editPartForm] = Form.useForm();
   const [availableRfidDevices, setAvailableRfidDevices] = useState([]);
   const rfidOutputRef = useRef(null);
-  
+    
+  // Get global RFID context
+  const {
+    lastScannedTag,
+    connectReader,
+    startScanning,
+    stopScanning,
+    disconnectReader,
+    clearData,
+    setLogReference,
+    inBrowser
+  } = useRfid();
   // Handle RFID tag scanning
   useEffect(() => {
     if (lastScannedTag && rfidModalVisible) {
@@ -318,18 +329,7 @@ const ManageItem = () => {
     setRfidValue(''); // Clear any previous RFID value
     setRfidModalVisible(true);
   };
-  
-  // Get global RFID context
-  const {
-    lastScannedTag,
-    connectReader,
-    startScanning,
-    stopScanning,
-    disconnectReader,
-    clearData,
-    setLogReference,
-    inBrowser
-  } = useRfid();
+
   
   // Track if RFID has been initialized for this modal session
   const [rfidInitialized, setRfidInitialized] = useState(false);
