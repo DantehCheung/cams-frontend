@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { message } from 'antd';
+import { message, notification } from 'antd';
 
 // Create the context
 const RfidContext = createContext();
@@ -18,6 +18,7 @@ export const RfidProvider = ({ children }) => {
   const [lastScannedTag, setLastScannedTag] = useState(null);
   const [logRef, setLogRef] = useState({ current: null });
   const [isResetting, setIsResetting] = useState(false); // Flag to prevent reconnection loops
+  const [allowAutoScan, setAllowAutoScan] = useState(false); // Flag to prevent automatic scanning - default OFF
   
   // Event listeners for RFID operations
   useEffect(() => {
@@ -63,11 +64,23 @@ export const RfidProvider = ({ children }) => {
         if (response.success === true) {
           setIsConnected(true);
           message.success('RFID reader connected successfully');
+          
+          // Manual control: Only notify about successful connection, don't auto-restart scanning
+          if (isResetting) {
+            console.log('Connection successful after reset');
+            message.success('RFID reader reconnected successfully. Click Execute to scan.');
+          }
         } else {
           // Special handling for already connected case
           if (response.error && response.error.includes('already connected')) {
             setIsConnected(true); // Set connected state to true since device is actually connected
             message.info('RFID reader is already connected');
+            
+            // Manual control: Only notify about connection status, don't auto-restart scanning
+            if (isResetting) {
+              console.log('Device already connected during reset');
+              message.success('RFID reader is ready. Click Execute to scan.');
+            }
           } else {
             setIsConnected(false);
             let errorMsg = 'Failed to connect to RFID reader';
@@ -78,12 +91,14 @@ export const RfidProvider = ({ children }) => {
           }
         }
       } catch (e) {
+        console.error('Error processing connection response:', e);
         message.error('Error processing RFID reader response');
       }
     };
     
     // Handle start scan
     const handleStartScan = (event, data) => {
+      console.log('RFID scan response received');
       logEvent('replyStartLoopRead', data);
       try {
         const response = JSON.parse(data);
@@ -93,26 +108,30 @@ export const RfidProvider = ({ children }) => {
         } else {
           // Special handling for common GetEPC_TID_UserData errors
           if (response.error && response.error.includes('GetEPC_TID_UserData failed: -2')) {
-            // This often happens because the device needs to be reset
-            if (!isResetting) {
-              message.info('RFID reader needs to be reset. Attempting to reconnect...');
-              setIsResetting(true);
-              
-              // Try to disconnect and wait before reconnecting
-              ipcRenderer.send("disconnectUsbRfidReader", 0);
-              
-              // Wait before reconnecting to avoid message loops
-              setTimeout(() => {
-                setIsConnected(false);
-                setIsScanning(false);
-                ipcRenderer.send("connectUsbRfidReader", 0);
-                
-                // Reset the flag after reconnection attempt
-                setTimeout(() => {
-                  setIsResetting(false);
-                }, 3000);
-              }, 2000);
-            }
+            // This is a hardware-level error that requires a full USB disconnect/reconnect
+            console.log('Hardware error detected: GetEPC_TID_UserData failed: -2');
+            message.error('RFID reader hardware error detected');
+            
+            // Mark as not connected since the device is in an error state
+            setIsConnected(false);
+            setIsScanning(false);
+            
+            // Show specific instructions to help the user
+            notification.warning({
+              message: 'RFID Reader Needs Reset',
+              description: (
+                <div>
+                  <p>Please follow these steps to reset your RFID reader:</p>
+                  <ol>
+                    <li>Physically unplug the RFID reader from the USB port</li>
+                    <li>Wait 5 seconds</li>
+                    <li>Plug the reader back in</li>
+                    <li>Click "Connect" and then "Execute"</li>
+                  </ol>
+                </div>
+              ),
+              duration: 0 // Don't auto-dismiss
+            });
           } else if (response.error && response.error.includes('Index was out of range')) {
             // Handle the index out of range error
             setIsScanning(false);
@@ -188,28 +207,35 @@ export const RfidProvider = ({ children }) => {
     const handleCheckConnectionStatus = (event, data) => {
       logEvent('replyCheckConnectionStatus', data);
       
-      // If we've already shown a message recently, just log without showing UI notification
-      if (statusMessageShown) {
-        console.log('Suppressing duplicate status notification');
-        return;
-      }
-      
       try {
         const response = JSON.parse(data);
+        const wasConnected = isConnected; // Store previous state
+        
         if (response.isConnected === true) {
           setIsConnected(true);
-          message.success('RFID reader is connected');
+          
+          // Only show message if not suppressing or if connection state changed
+          if (!statusMessageShown || !wasConnected) {
+            message.success('RFID reader is connected');
+          }
         } else {
           setIsConnected(false);
-          message.info('RFID reader is not connected');
+          
+          // Only show message if not suppressing or if connection state changed
+          if (!statusMessageShown || wasConnected) {
+            message.info('RFID reader is not connected');
+          }
         }
         
-        // Set flag to prevent duplicate messages
-        statusMessageShown = true;
-        setTimeout(() => {
-          statusMessageShown = false;
-        }, 1000);
+        // Set flag to prevent duplicate messages only for UI notifications
+        if (!statusMessageShown) {
+          statusMessageShown = true;
+          setTimeout(() => {
+            statusMessageShown = false;
+          }, 1000);
+        }
       } catch (e) {
+        console.error('Error checking connection status:', e);
         message.error('Error checking connection status');
       }
     };
@@ -265,24 +291,32 @@ export const RfidProvider = ({ children }) => {
     };
   }, []);
   
-  // Function to connect RFID reader
+  // Function to connect RFID reader - completely rewritten
   const connectReader = () => {
     if (inBrowser) {
       message.error('RFID functionality is only available in the desktop application');
       return;
     }
     
-    if (isConnected) {
-      message.info('RFID reader already connected');
-      return;
-    }
+    // First, ensure any existing connection is properly closed
+    console.log('Disconnecting any existing connection...');
+    ipcRenderer.send("disconnectUsbRfidReader", 0);
     
-    message.loading({ content: 'Connecting to RFID reader...', key: 'rfidOperation' });
-    ipcRenderer.send("connectUsbRfidReader", 0);
+    // Clear states immediately to prevent UI confusion
+    setIsConnected(false);
+    setIsScanning(false);
+    setIsResetting(false);
     
-    if (logRef.current) {
-      logRef.current.innerHTML += '<span style="color:red;">connectBtn</span>: Connecting...<br>';
-    }
+    // Wait for disconnect to complete before attempting to connect
+    setTimeout(() => {
+      console.log('Attempting to connect RFID reader...');
+      message.loading({ content: 'Connecting to RFID reader...', key: 'rfidOperation' });
+      ipcRenderer.send("connectUsbRfidReader", 0);
+      
+      if (logRef.current) {
+        logRef.current.innerHTML += '<span style="color:red;">connectBtn</span>: Connecting...<br>';
+      }
+    }, 1000);
   };
   
   // Function to check connection status
@@ -313,32 +347,30 @@ export const RfidProvider = ({ children }) => {
     }, 1000);
   };
 
-  // Function to start scanning
+  // Function to start scanning - completely rewritten for reliability
   const startScanning = () => {
+    // Debug info
+    console.log('Manual scan requested');
+    
     if (inBrowser) {
       message.error('RFID functionality is only available in the desktop application');
       return;
     }
     
-    if (!isConnected) {
-      message.info('Connecting to RFID reader first...');
-      connectReader();
-      
-      // Try to start scanning after connecting
-      setTimeout(() => {
-        if (!isResetting) {
-          message.loading({ content: 'Starting RFID scan...', key: 'rfidOperation' });
-          ipcRenderer.send("startLoopRead", 0);
-        }
-      }, 1500);
-      return;
-    }
-    
+    // If already scanning, don't start again
     if (isScanning) {
       message.info('RFID scanning already in progress');
       return;
     }
     
+    // If not connected, handle that first
+    if (!isConnected) {
+      message.info('Please connect the RFID reader first');
+      return;
+    }
+    
+    // Start the scan - only when explicitly requested by user
+    console.log('Starting RFID scan...');
     message.loading({ content: 'Starting RFID scan...', key: 'rfidOperation' });
     ipcRenderer.send("startLoopRead", 0);
   };
@@ -383,17 +415,23 @@ export const RfidProvider = ({ children }) => {
     if (inBrowser) return;
     
     // Prevent multiple resets
-    if (isResetting) return;
+    if (isResetting) {
+      console.log('Reset already in progress, ignoring request');
+      return;
+    }
     
+    console.log('Manual reset initiated');
     setIsResetting(true);
     message.loading({ content: 'Resetting RFID connection...', key: 'rfidOperation' });
     
     // First stop scanning if active
     if (isScanning) {
+      console.log('Stopping scan as part of reset');
       ipcRenderer.send("stopLoopRead", 0);
     }
     
     // Then disconnect
+    console.log('Disconnecting reader as part of reset');
     ipcRenderer.send("disconnectUsbRfidReader", 0);
     
     // Reset state
@@ -403,11 +441,13 @@ export const RfidProvider = ({ children }) => {
     
     // Wait a moment before reconnecting
     setTimeout(() => {
+      console.log('Reconnecting after reset');
       message.loading({ content: 'Reconnecting...', key: 'rfidOperation' });
       ipcRenderer.send("connectUsbRfidReader", 0);
       
       // Reset the reset flag after some time
       setTimeout(() => {
+        console.log('Reset sequence complete, clearing reset flag');
         setIsResetting(false);
       }, 3000);
     }, 2000);

@@ -53,6 +53,9 @@ const { Title } = Typography;
 
 
 const ManageItem = () => {
+  // Get RFID context
+
+
   const [items, setItems] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -90,6 +93,14 @@ const ManageItem = () => {
   const [editPartForm] = Form.useForm();
   const [availableRfidDevices, setAvailableRfidDevices] = useState([]);
   const rfidOutputRef = useRef(null);
+  
+  // Handle RFID tag scanning
+  useEffect(() => {
+    if (lastScannedTag && rfidModalVisible) {
+      // Update the RFID value when a tag is scanned and the modal is open
+      setRfidValue(lastScannedTag.TID || '');
+    }
+  }, [lastScannedTag, rfidModalVisible]);
   // State for filtering items by state
   const [stateFilters, setStateFilters] = useState({
     available: true,    // A - Available
