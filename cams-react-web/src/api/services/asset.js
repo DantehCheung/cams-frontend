@@ -652,8 +652,38 @@ export const updateItemPart = async (partData) => {
 export const borrowItem = async (borrowData) => {
     try{
         const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ','');
-
-      
+        
+        // Create the request payload
+        const requestData = {
+            token: token,
+            itemID: borrowData.itemID,
+            endDate: borrowData.endDate
+        };
+        
+        // Make the API call
+        const response = await axiosInstance.post('br/borrow', requestData);
+        
+        console.log('API response from borrowItem:', response.data);
+        
+        if (response.data && response.data.status === true) {
+            return { success: true, data: response.data };
+        }
+        
+        // Handle API error response
+        let errorMessage = 'Unknown API error';
+        if (response.data) {
+            if (typeof response.data === 'string') {
+                errorMessage = response.data;
+            } else if (response.data.errorMessage || response.data.message) {
+                errorMessage = response.data.errorMessage || response.data.message;
+            } else if (response.data.error) {
+                errorMessage = response.data.error;
+            } else {
+                errorMessage = JSON.stringify(response.data);
+            }
+        }
+        
+        return { success: false, error: errorMessage };
     }catch(error){
       console.error('Error borrowing item:', error);
       return { success: false, error: error.message || 'Unknown error' };
@@ -670,12 +700,39 @@ export const getDeviceIdByRFID = async (rfid) => {
        RFID: rfid
      }
 
-     const response = axiosInstance.post('getitembyrfid',requestData)
+     const response = await axiosInstance.post('getitembyrfid', requestData)
 
-     if (response.data && response.data.status === true) {
+     console.log('API response from getDeviceIdByRFID:', response.data);
+
+     // Check if the response has expected device data format
+     if (response.data && 
+         (response.data.deviceID !== undefined || 
+          (response.data.data && response.data.data.deviceID !== undefined))) {
+      
+      // If the data is wrapped in a data property, return that
+      if (response.data.data) {
+        return { success: true, data: response.data.data };
+      }
+      
+      // Otherwise return the direct response data which has device info
       return { success: true, data: response.data };
     }
-    return { success: false, error: response.data };
+    
+    // Handle API error response
+    let errorMessage = 'Unknown API error';
+    if (response.data) {
+      if (typeof response.data === 'string') {
+        errorMessage = response.data;
+      } else if (response.data.errorMessage || response.data.message) {
+        errorMessage = response.data.errorMessage || response.data.message;
+      } else if (response.data.error) {
+        errorMessage = response.data.error;
+      } else {
+        errorMessage = JSON.stringify(response.data);
+      }
+    }
+    
+    return { success: false, error: errorMessage };
   }catch(error){
     console.error('Get device ID by RFID error:', error);
     return { success: false, error: error.message || 'Unknown error' };

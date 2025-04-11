@@ -140,6 +140,9 @@ const Borrow = () => {
 
   const handleConfirmBorrow = async () => {
     try {
+      // Validate form fields first
+      const values = await borrowForm.validateFields();
+      
       if (!rfidValue) {
         notification.error({
           message: "Borrowing Failed",
@@ -148,34 +151,110 @@ const Borrow = () => {
         return;
       }
       
+      if (!values.endDate) {
+        notification.error({
+          message: "Borrowing Failed",
+          description: "Please select an end date for borrowing.",
+        });
+        return;
+      }
+      
       setLoading(true);
       
-      // Here you would make your actual API call
-      // For example:
-      // const result = await assetService.borrowItem({
-      //   rfidTag: rfidValue
-      // });
+      // First get device details by RFID
+      try {
+        const deviceResponse = await assetService.getDeviceIdByRFID(rfidValue);
+        
+        if (!deviceResponse.success) {
+          throw new Error(deviceResponse.error || 'Failed to get device information');
+        }
+        
+        // Make sure we have the required device information
+        const deviceData = deviceResponse.data;
+        if (!deviceData.deviceID) {
+          throw new Error('Device ID not found in the response');
+        }
+        
+        console.log('Device found:', deviceResponse.data);
+        
+        // Format the date as YYYY-MM-DD
+        const formattedEndDate = values.endDate.format('YYYY-MM-DD');
+        
+        // Call borrowItem API with the deviceID and endDate
+        const borrowResponse = await assetService.borrowItem({
+          itemID: deviceData.deviceID,
+          endDate: formattedEndDate
+        });
+        
+        if (!borrowResponse.success) {
+          throw new Error(borrowResponse.error || 'Failed to borrow item');
+        }
+        
+        // Update redux store if needed
+        dispatch(borrowSuccess([deviceData]));
+        
+        notification.success({
+          message: "Borrowing Completed",
+          description: `${deviceData.deviceName} has been borrowed successfully. Return date: ${formattedEndDate}`,
+        });
+        
+        // Reset the form and RFID value
+        borrowForm.resetFields();
+        setRfidValue('');
+      } catch (error) {
+        console.error('Error retrieving device by RFID:', error);
+        
+        // Check for the specific error message
+        if (error.message && error.message.includes('Device has existed')) {
+          notification.error({
+            message: "Borrowing Failed",
+            description: "This device is already borrowed or assigned to someone else.",
+          });
+        } else {
+          // Format error message properly
+          let errorMessage = "An unknown error occurred";
+          
+          if (error.message) {
+            errorMessage = error.message;
+          }
+          
+          // Handle case where error is an object
+          if (typeof error === 'object' && error !== null) {
+            if (error.toString() === '[object Object]') {
+              errorMessage = JSON.stringify(error);
+            }
+          }
+          
+          notification.error({
+            message: "Borrowing Failed",
+            description: errorMessage,
+          });
+        }
+      }
       
-      // For now, simulate a successful API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // Update your redux store if needed
-      dispatch(borrowSuccess([]));
-      
-      notification.success({
-        message: "Borrowing Completed",
-        description: `Item with RFID ${rfidValue} has been borrowed successfully.`,
-      });
-      
-      // Reset the form and RFID value
-      borrowForm.resetFields();
-      setRfidValue('');
+
       
     } catch (error) {
-      console.error('Error during borrow process:', error);
+      // This catch block will only handle errors not caught in the inner try-catch
+      console.error('Unhandled error in borrow process:', error);
+      
+      // Format error message properly
+      let errorMessage = "An unknown error occurred";
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Handle case where error is an object
+      if (typeof error === 'object' && error !== null) {
+        if (error.toString() === '[object Object]') {
+          errorMessage = JSON.stringify(error);
+        }
+      }
+      
       notification.error({
         message: "Borrowing Failed",
-        description: error.toString(),
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -296,6 +375,16 @@ const Borrow = () => {
     }
   };
   
+  // Get current date and add 30 days for max date limit
+  const today = new Date();
+  const thirtyDaysLater = new Date(today);
+  thirtyDaysLater.setDate(today.getDate() + 30);
+  
+  // Disable dates before today and after 30 days from now
+  const disabledDate = (current) => {
+    return current && (current < today || current > thirtyDaysLater);
+  };
+  
   // Borrow Tab Content
   const BorrowTabContent = () => (
     <Spin spinning={loading}>
@@ -342,6 +431,21 @@ const Borrow = () => {
               </div>
             </Form.Item>
           </Col>
+          
+          <Col xs={24}>
+            <Form.Item 
+              name="endDate" 
+              label="Return Date" 
+              rules={[{ required: true, message: 'Please select a return date' }]}
+            >
+              <DatePicker 
+                style={{ width: '100%' }} 
+                disabledDate={disabledDate}
+                inputReadOnly={true}
+                placeholder="Select return date (within 30 days)"
+              />
+            </Form.Item>
+          </Col>
         </Row>
         
         <Divider />
@@ -378,6 +482,7 @@ const Borrow = () => {
           <ol style={{ paddingLeft: 24, margin: 0 }}>
             <li>Place the RFID tag near the reader</li>
             <li>Verify the RFID tag has been detected</li>
+            <li>Select a return date (within 30 days)</li>
             <li>Click "Confirm Borrow" to complete the borrowing process</li>
           </ol>
         </div>
