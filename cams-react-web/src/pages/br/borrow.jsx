@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Card, Form, Input, Button, notification, Select, Row, Col, Spin, Typography, Divider } from "antd";
-import { ScanOutlined, ClearOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, notification, Select, Row, Col, Spin, Typography, Divider, Tabs, Table, Space, DatePicker, Descriptions } from "antd";
+import { ScanOutlined, ClearOutlined, CheckCircleOutlined, HistoryOutlined, FileSearchOutlined, BookOutlined } from '@ant-design/icons';
 import "./borrow.css"; // css file
 // insert react redux hooks
 import { useSelector, useDispatch } from "react-redux";
@@ -18,6 +18,7 @@ const ipcRenderer = electron?.ipcRenderer;
 const inBrowser = !ipcRenderer;
 
 const { Title, Text } = Typography;
+const { TabPane } = Tabs;
 
 const Borrow = () => {
   const [borrowForm] = Form.useForm();
@@ -181,6 +182,437 @@ const Borrow = () => {
     }
   };
 
+  // State for the Reserve tab
+  const [reserveForm] = Form.useForm();
+  const [reserveLoading, setReserveLoading] = useState(false);
+  
+  // State for Check tab
+  const [checkForm] = Form.useForm();
+  const [checkRfidValue, setCheckRfidValue] = useState('');
+  const [checkLoading, setCheckLoading] = useState(false);
+  const [itemDetails, setItemDetails] = useState(null);
+  
+  // State for Borrow Record tab
+  const [recordsLoading, setRecordsLoading] = useState(false);
+  const [borrowRecords, setBorrowRecords] = useState([]);
+  const [recordsParams, setRecordsParams] = useState({
+    page: 1,
+    pageSize: 10,
+    startDate: null,
+    endDate: null
+  });
+  
+  // Function to handle tab change
+  const handleTabChange = (activeKey) => {
+    console.log('Active tab:', activeKey);
+    // You could load data based on the active tab here
+    if (activeKey === '3') { // Borrow Records tab
+      fetchBorrowRecords();
+    }
+  };
+  
+  // Mock function to fetch borrow records
+  const fetchBorrowRecords = async () => {
+    try {
+      setRecordsLoading(true);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 800));
+      // Mock data
+      const mockRecords = [
+        { id: 1, itemName: 'Laptop', rfidTag: 'E280110640000252B96AAD01', borrowDate: '2025-04-09', returnDate: '2025-04-16', status: 'Active' },
+        { id: 2, itemName: 'Projector', rfidTag: 'E280110640000252B96AAD02', borrowDate: '2025-04-08', returnDate: '2025-04-15', status: 'Active' },
+        { id: 3, itemName: 'Tablet', rfidTag: 'E280110640000252B96AAD03', borrowDate: '2025-04-05', returnDate: '2025-04-12', status: 'Returned' }
+      ];
+      setBorrowRecords(mockRecords);
+    } catch (error) {
+      console.error('Error fetching borrow records:', error);
+      notification.error({
+        message: 'Failed to fetch records',
+        description: error.toString()
+      });
+    } finally {
+      setRecordsLoading(false);
+    }
+  };
+  
+  // Mock function to check item details
+  const handleCheckItem = async () => {
+    if (!checkRfidValue) {
+      notification.warning({
+        message: 'No RFID Value',
+        description: 'Please scan an RFID tag first'
+      });
+      return;
+    }
+    
+    try {
+      setCheckLoading(true);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 800));
+      // Mock data
+      setItemDetails({
+        id: 123,
+        name: 'Demo Item',
+        category: 'Electronic',
+        rfidTag: checkRfidValue,
+        status: 'Available',
+        location: 'Main Storage',
+        lastBorrowed: '2025-04-01'
+      });
+    } catch (error) {
+      console.error('Error checking item:', error);
+      notification.error({
+        message: 'Item Check Failed',
+        description: error.toString()
+      });
+    } finally {
+      setCheckLoading(false);
+    }
+  };
+  
+  // Mock function for reservation
+  const handleReserveItem = async () => {
+    try {
+      const values = await reserveForm.validateFields();
+      setReserveLoading(true);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      notification.success({
+        message: 'Reservation Successful',
+        description: `You have successfully reserved ${values.itemName} from ${values.startDate} to ${values.endDate}`
+      });
+      
+      reserveForm.resetFields();
+    } catch (error) {
+      console.error('Reservation error:', error);
+      notification.error({
+        message: 'Reservation Failed',
+        description: error.toString()
+      });
+    } finally {
+      setReserveLoading(false);
+    }
+  };
+  
+  // Borrow Tab Content
+  const BorrowTabContent = () => (
+    <Spin spinning={loading}>
+      <Form form={borrowForm} layout="vertical">
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          <Col xs={24}>
+            <Form.Item label="RFID Tag Input">
+              <Input
+                readOnly
+                value={rfidValue}
+                onChange={(e) => setRfidValue(e.target.value)}
+                placeholder="Scan or enter RFID tag..."
+                suffix={
+                  rfidValue ? (
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  ) : null
+                }
+                style={{ fontSize: '16px' }}
+              />
+            </Form.Item>
+          </Col>
+          
+          <Col xs={24}>
+            <Form.Item label="RFID Status">
+              <div className="rfid-status-box" style={{
+                padding: '12px 16px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '6px',
+                backgroundColor: rfidValue ? '#f6ffed' : '#f5f5f5',
+                borderColor: rfidValue ? '#b7eb8f' : '#d9d9d9',
+                height: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: '16px'
+              }}>
+              {rfidValue ? (
+                <>
+                  <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px', marginRight: '8px' }} />
+                  <Text strong>RFID Tag Detected: {rfidValue}</Text>
+                </>
+              ) : (
+                <Text type="secondary">Waiting for RFID scan...</Text>
+              )}
+              </div>
+            </Form.Item>
+          </Col>
+        </Row>
+        
+        <Divider />
+        
+        <Row gutter={24}>
+          <Col span={12}>
+            <Button 
+              icon={<ClearOutlined />} 
+              onClick={() => {
+                clearData();
+                setRfidValue('');
+              }}
+              style={{ width: '100%', height: '40px' }}
+            >
+              Clear RFID
+            </Button>
+          </Col>
+    
+          <Col span={12}>
+            <Button 
+              type="primary" 
+              icon={<ScanOutlined />}
+              onClick={handleConfirmBorrow}
+              disabled={!rfidValue}
+              style={{ width: '100%', height: '40px' }}
+            >
+              Confirm Borrow
+            </Button>
+          </Col>
+        </Row>
+        
+        <div style={{ marginTop: 24, padding: 16, backgroundColor: '#f0f5ff', borderRadius: 8 }}>
+          <Title level={5} style={{ marginBottom: 12 }}>Instructions:</Title>
+          <ol style={{ paddingLeft: 24, margin: 0 }}>
+            <li>Place the RFID tag near the reader</li>
+            <li>Verify the RFID tag has been detected</li>
+            <li>Click "Confirm Borrow" to complete the borrowing process</li>
+          </ol>
+        </div>
+      </Form>
+    </Spin>
+  );
+  
+  // Reserve Tab Content
+  const ReserveTabContent = () => (
+    <Spin spinning={reserveLoading}>
+      <Form form={reserveForm} layout="vertical" onFinish={handleReserveItem}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12}>
+            <Form.Item 
+              name="itemName" 
+              label="Item Name" 
+              rules={[{ required: true, message: 'Please select an item' }]}
+            >
+              <Select placeholder="Select an item to reserve">
+                <Select.Option value="laptop">Laptop</Select.Option>
+                <Select.Option value="projector">Projector</Select.Option>
+                <Select.Option value="camera">Camera</Select.Option>
+                <Select.Option value="microphone">Microphone</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          
+          <Col xs={24} md={12}>
+            <Form.Item
+              name="location"
+              label="Location"
+              rules={[{ required: true, message: 'Please select a location' }]}
+            >
+              <Select placeholder="Select pickup location">
+                <Select.Option value="mainLibrary">Main Library</Select.Option>
+                <Select.Option value="scienceLab">Science Lab</Select.Option>
+                <Select.Option value="mediaCenter">Media Center</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          
+          <Col xs={24} md={12}>
+            <Form.Item
+              name="startDate"
+              label="Start Date"
+              rules={[{ required: true, message: 'Please select a start date' }]}
+            >
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          
+          <Col xs={24} md={12}>
+            <Form.Item
+              name="endDate"
+              label="End Date"
+              rules={[{ required: true, message: 'Please select an end date' }]}
+            >
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          
+          <Col xs={24}>
+            <Form.Item
+              name="purpose"
+              label="Purpose of Reservation"
+            >
+              <Input.TextArea rows={4} placeholder="Please describe why you need this item" />
+            </Form.Item>
+          </Col>
+        </Row>
+        
+        <Row justify="end">
+          <Col>
+            <Button type="primary" htmlType="submit" icon={<BookOutlined />}>
+              Submit Reservation
+            </Button>
+          </Col>
+        </Row>
+      </Form>
+    </Spin>
+  );
+  
+  // Check Tab Content
+  const CheckTabContent = () => (
+    <Spin spinning={checkLoading}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24}>
+          <Form form={checkForm} layout="inline" style={{ marginBottom: 16 }}>
+            <Form.Item label="RFID Tag" style={{ flex: 1 }}>
+              <Input
+                value={checkRfidValue}
+                onChange={(e) => setCheckRfidValue(e.target.value)}
+                placeholder="Scan or enter RFID tag..."
+                suffix={
+                  checkRfidValue ? (
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  ) : null
+                }
+              />
+            </Form.Item>
+            <Form.Item>
+              <Button 
+                type="primary" 
+                onClick={handleCheckItem}
+                icon={<FileSearchOutlined />}
+              >
+                Check Item
+              </Button>
+            </Form.Item>
+          </Form>
+        </Col>
+        
+        {itemDetails && (
+          <Col xs={24}>
+            <Card title="Item Details" bordered={false}>
+              <Descriptions bordered column={{ xs: 1, sm: 2 }}>
+                <Descriptions.Item label="Item Name">{itemDetails.name}</Descriptions.Item>
+                <Descriptions.Item label="Category">{itemDetails.category}</Descriptions.Item>
+                <Descriptions.Item label="RFID Tag">{itemDetails.rfidTag}</Descriptions.Item>
+                <Descriptions.Item label="Status">
+                  <Text 
+                    type={itemDetails.status === 'Available' ? 'success' : 'danger'}
+                    strong
+                  >
+                    {itemDetails.status}
+                  </Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="Location">{itemDetails.location}</Descriptions.Item>
+                <Descriptions.Item label="Last Borrowed">{itemDetails.lastBorrowed}</Descriptions.Item>
+              </Descriptions>
+            </Card>
+          </Col>
+        )}
+      </Row>
+    </Spin>
+  );
+  
+  // Borrow Records Tab Content
+  const BorrowRecordsTabContent = () => {
+    const columns = [
+      {
+        title: 'Item Name',
+        dataIndex: 'itemName',
+        key: 'itemName',
+      },
+      {
+        title: 'RFID Tag',
+        dataIndex: 'rfidTag',
+        key: 'rfidTag',
+      },
+      {
+        title: 'Borrow Date',
+        dataIndex: 'borrowDate',
+        key: 'borrowDate',
+      },
+      {
+        title: 'Return Date',
+        dataIndex: 'returnDate',
+        key: 'returnDate',
+      },
+      {
+        title: 'Status',
+        dataIndex: 'status',
+        key: 'status',
+        render: (status) => (
+          <Text 
+            type={status === 'Active' ? 'warning' : (status === 'Returned' ? 'success' : 'danger')}
+            strong
+          >
+            {status}
+          </Text>
+        ),
+      },
+      {
+        title: 'Actions',
+        key: 'actions',
+        render: (_, record) => (
+          <Space size="middle">
+            <Button type="link" size="small">View Details</Button>
+            {record.status === 'Active' && (
+              <Button type="link" size="small">Return</Button>
+            )}
+          </Space>
+        ),
+      },
+    ];
+    
+    return (
+      <div>
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          <Col xs={24} md={8}>
+            <DatePicker.RangePicker 
+              style={{ width: '100%' }}
+              onChange={(dates) => {
+                if (dates) {
+                  setRecordsParams({
+                    ...recordsParams,
+                    startDate: dates[0],
+                    endDate: dates[1]
+                  });
+                }
+              }}
+            />
+          </Col>
+          <Col xs={24} md={16}>
+            <Button 
+              type="primary" 
+              icon={<FileSearchOutlined />}
+              onClick={fetchBorrowRecords}
+              style={{ marginRight: 8 }}
+            >
+              Search
+            </Button>
+            <Button icon={<ClearOutlined />}>
+              Clear Filters
+            </Button>
+          </Col>
+        </Row>
+        
+        <Table 
+          dataSource={borrowRecords} 
+          columns={columns}
+          rowKey="id"
+          loading={recordsLoading}
+          pagination={{
+            current: recordsParams.page,
+            pageSize: recordsParams.pageSize,
+            onChange: (page) => setRecordsParams({ ...recordsParams, page }),
+            total: 100, // Mock total
+          }}
+        />
+      </div>
+    );
+  };
+  
   return (
     <div 
       className="borrow-container" 
@@ -190,129 +622,35 @@ const Borrow = () => {
       style={{ outline: 'none' }}
     >
       <Card>
-        <Title level={2} style={{ marginBottom: 24 }}>Borrow Item via RFID</Title>
-        
-        <Spin spinning={loading}>
-          <Form form={borrowForm} layout="vertical">
-            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-              <Col xs={24}>
-                <Form.Item label="RFID Tag Input">
-                  <Input
-                    value={rfidValue}
-                    onChange={(e) => setRfidValue(e.target.value)}
-                    placeholder="Scan or enter RFID tag..."
-                    suffix={
-                      rfidValue ? (
-                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                      ) : null
-                    }
-                    style={{ fontSize: '16px' }}
-                  />
-                </Form.Item>
-              </Col>
-              
-              <Col xs={24}>
-                <Form.Item label="RFID Status">
-                  <div className="rfid-status-box" style={{
-                    padding: '12px 16px',
-                    border: '1px solid #d9d9d9',
-                    borderRadius: '6px',
-                    backgroundColor: rfidValue ? '#f6ffed' : '#f5f5f5',
-                    borderColor: rfidValue ? '#b7eb8f' : '#d9d9d9',
-                    height: '50px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    fontSize: '16px'
-                  }}>
-                  {rfidValue ? (
-                    <>
-                      <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px', marginRight: '8px' }} />
-                      <Text strong>RFID Tag Detected: {rfidValue}</Text>
-                    </>
-                  ) : (
-                    <Text type="secondary">Waiting for RFID scan...</Text>
-                  )}
-                  </div>
-                </Form.Item>
-              </Col>
-            </Row>
-            
-            {/* Debug panel with improved visibility */}
-            <Form.Item label="RFID Debug Panel">
-              <div
-                ref={rfidOutputRef}
-                style={{
-                  padding: '8px',
-                  backgroundColor: '#f0f2f5',
-                  borderRadius: '4px',
-                  height: '150px',
-                  overflowY: 'auto',
-                  marginBottom: '12px',
-                  fontSize: '12px',
-                  fontFamily: 'monospace'
-                }}
-              >
-                <p style={{ margin: 0 }}><strong>RFID Debug Info:</strong> Will show events here</p>
-              </div>
-            </Form.Item>
-            
-            <Divider />
-            
-            <Row gutter={16}>
-              <Col span={8}>
-                <Button 
-                  icon={<ClearOutlined />} 
-                  onClick={() => {
-                    clearData();
-                    setRfidValue('');
-                  }}
-                  style={{ width: '100%', height: '40px' }}
-                >
-                  Clear RFID
-                </Button>
-              </Col>
-              <Col span={8}>
-                <Button 
-                  type="primary"
-                  danger
-                  onClick={() => {
-                    const testRfid = 'TEST' + Math.floor(Math.random() * 1000000).toString();
-                    // Update the log output
-                    if (rfidOutputRef.current) {
-                      rfidOutputRef.current.innerHTML += `<div style="color: green;">Test RFID generated: ${testRfid}</div>`;
-                      rfidOutputRef.current.scrollTop = rfidOutputRef.current.scrollHeight;
-                    }
-                    // Set the RFID value directly
-                    setRfidValue(testRfid);
-                  }}
-                  style={{ width: '100%', height: '40px' }}
-                >
-                  Test RFID Scan
-                </Button>
-              </Col>
-              <Col span={8}>
-                <Button 
-                  type="primary" 
-                  icon={<ScanOutlined />}
-                  onClick={handleConfirmBorrow}
-                  disabled={!rfidValue}
-                  style={{ width: '100%', height: '40px' }}
-                >
-                  Confirm Borrow
-                </Button>
-              </Col>
-            </Row>
-            
-            <div style={{ marginTop: 24, padding: 16, backgroundColor: '#f0f5ff', borderRadius: 8 }}>
-              <Title level={5} style={{ marginBottom: 12 }}>Instructions:</Title>
-              <ol style={{ paddingLeft: 24, margin: 0 }}>
-                <li>Place the RFID tag near the reader</li>
-                <li>Verify the RFID tag has been detected</li>
-                <li>Click "Confirm Borrow" to complete the borrowing process</li>
-              </ol>
-            </div>
-          </Form>
-        </Spin>
+        <Tabs defaultActiveKey="1" onChange={handleTabChange}>
+          <TabPane 
+            tab={<span><ScanOutlined /> Borrow</span>} 
+            key="1"
+          >
+            <BorrowTabContent />
+          </TabPane>
+          
+          <TabPane 
+            tab={<span><BookOutlined /> Reserve</span>} 
+            key="2"
+          >
+            <ReserveTabContent />
+          </TabPane>
+          
+          <TabPane 
+            tab={<span><FileSearchOutlined /> Check</span>} 
+            key="3"
+          >
+            <CheckTabContent />
+          </TabPane>
+          
+          <TabPane 
+            tab={<span><HistoryOutlined /> Borrow Records</span>} 
+            key="4"
+          >
+            <BorrowRecordsTabContent />
+          </TabPane>
+        </Tabs>
       </Card>
     </div>
   );

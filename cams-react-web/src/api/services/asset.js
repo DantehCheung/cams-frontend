@@ -648,3 +648,38 @@ export const updateItemPart = async (partData) => {
     };
   }
 }
+
+export const borrowItem = async (borrowData) => {
+    try{
+        const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ','');
+
+      
+    }catch(error){
+      console.error('Error borrowing item:', error);
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+}
+
+export const getDeviceIdByRFID = async (rfid) => {
+  try{
+     // Extract the token from the Authorization header
+     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+
+     const requestData = {
+       token,
+       RFID: rfid
+     }
+
+     const response = axiosInstance.post('getitembyrfid',requestData)
+
+     if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: response.data };
+  }catch(error){
+    console.error('Get device ID by RFID error:', error);
+    return { success: false, error: error.message || 'Unknown error' };
+  }
+}
+
+

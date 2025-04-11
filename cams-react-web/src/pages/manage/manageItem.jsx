@@ -323,42 +323,17 @@ const ManageItem = () => {
   // Track if RFID has been initialized for this modal session
   const [rfidInitialized, setRfidInitialized] = useState(false);
   
-  // RFID Scanner Integration - Use global context
+  // Simple reference for RFID output logging
   useEffect(() => {
-    if (rfidModalVisible && !inBrowser && !rfidInitialized) {
-      // Set up the output reference for logging
-      if (rfidOutputRef.current) {
-        setLogReference(rfidOutputRef.current);
-      }
-      
-      // Mark as initialized to prevent multiple connection attempts
-      setRfidInitialized(true);
-      
-      // Attempt to connect only if not already connected
-      message.loading({ content: 'Preparing RFID reader...', key: 'rfidOperation' });
-      
-      // Start scanning if already connected, otherwise connect first
-      connectReader();
-      
-      // After a delay, start scanning
-      const scanTimer = setTimeout(() => {
-        startScanning();
-      }, 1000);
-      
-      // Return cleanup function
-      return () => {
-        clearTimeout(scanTimer);
-        // Don't disconnect automatically - let the global context manage connections
-        // Just stop scanning when modal closes
-        stopScanning();
-      };
+    if (rfidModalVisible && rfidOutputRef.current) {
+      setLogReference(rfidOutputRef.current);
     }
     
-    // Reset initialization state when modal closes
-    if (!rfidModalVisible) {
-      setRfidInitialized(false);
-    }
-  }, [rfidModalVisible, connectReader, startScanning, stopScanning, setLogReference, inBrowser, rfidInitialized]);
+    // No automatic connection or scanning - user will control this manually
+    return () => {
+      // No automatic cleanup required
+    };
+  }, [rfidModalVisible, setLogReference]);
   
   // Update RFID value when tag is scanned
   useEffect(() => {
@@ -369,8 +344,7 @@ const ManageItem = () => {
   
   // Function to handle RFID modal cancel
   const handleRfidModalCancel = () => {
-    // Just stop scanning but don't disconnect - maintain the global connection
-    stopScanning();
+    // Just close the modal without stopping scanning - let global context manage the RFID state
     setRfidModalVisible(false);
     setSelectedDeviceId(null);
     setSelectedPartId(null);
