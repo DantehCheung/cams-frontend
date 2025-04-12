@@ -4,8 +4,10 @@ import { ScanOutlined, ClearOutlined, CheckCircleOutlined, HistoryOutlined, File
 import "./borrow.css"; // css file
 // insert react redux hooks
 import { useSelector, useDispatch } from "react-redux";
+import axiosInstance from "../../api/axios";
 import { borrowSuccess } from "../../store/modules/borrowSlice";
 import { assetService } from "../../api";
+import { reserveItem } from "../../api/services/asset";
 
 // Get electron IPC if we're in the desktop app
 let electron;
@@ -46,6 +48,7 @@ const Borrow = () => {
       containerRef.current.focus();
     }
     
+
     // Cleanup when component unmounts
     return () => {
       if (window.ARSInterface && typeof window.ARSInterface.clearActivePage === 'function') {
@@ -264,12 +267,13 @@ const Borrow = () => {
   // State for the Reserve tab
   const [reserveForm] = Form.useForm();
   const [reserveLoading, setReserveLoading] = useState(false);
+  const [campuses, setCampuses] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [devices, setDevices] = useState([]);
+  const [selectedCampus, setSelectedCampus] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
   
-  // State for Check tab
-  const [checkForm] = Form.useForm();
-  const [checkRfidValue, setCheckRfidValue] = useState('');
-  const [checkLoading, setCheckLoading] = useState(false);
-  const [itemDetails, setItemDetails] = useState(null);
+
   
   // State for Borrow Record tab
   const [recordsLoading, setRecordsLoading] = useState(false);
@@ -281,14 +285,220 @@ const Borrow = () => {
     endDate: null
   });
   
+  // Function to fetch campus data
+  const fetchCampuses = async () => {
+    try {
+      setReserveLoading(true);
+      
+      // Get token from authorization header
+      const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+      
+      // Make direct API call to ensure we get the data
+      const response = await axiosInstance.post('getcampus', { token });
+      
+      console.log('Campus data direct response:', response.data);
+      
+      // Check for the correct property ('c' instead of 'campus')
+      if (response.data && response.data.c && Array.isArray(response.data.c)) {
+        const formattedCampuses = response.data.c.map(campus => ({
+          id: campus.campusId,  // Note: campusId, not campusID
+          name: campus.campusName,
+          shortName: campus.campusShortName
+        }));
+        setCampuses(formattedCampuses);
+        console.log('Formatted campuses:', formattedCampuses);
+      } else {
+        console.warn('Unexpected API response format:', response.data);
+        setCampuses([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch campus data:', error);
+      notification.error({
+        message: 'Failed to load campus data',
+        description: error.message || 'Unknown error'
+      });
+      setCampuses([]);
+    } finally {
+      setReserveLoading(false);
+    }
+  };
+  
+  // Call this once when component mounts
+  useEffect(() => {
+    fetchCampuses();
+  }, []);
+
   // Function to handle tab change
   const handleTabChange = (activeKey) => {
     console.log('Active tab:', activeKey);
-    // You could load data based on the active tab here
-    if (activeKey === '3') { // Borrow Records tab
+    // Load data based on the active tab
+    if (activeKey === '2') { // Reserve tab
+      fetchCampuses();
+    } else if (activeKey === '3') { // Borrow Records tab
       fetchBorrowRecords();
     }
   };
+
+// Handle campus change - fetch rooms for selected campus
+const handleCampusChange = (value) => {
+  console.log('Selected campus:', value);
+  setSelectedCampus(value);
+  setSelectedRoom(null); // Reset room selection when campus changes
+  setDevices([]); // Clear devices when campus changes
+  reserveForm.setFieldsValue({ roomId: undefined, itemId: undefined });
+  
+  if (value) {
+    fetchRoomsByCampus(value);
+  } else {
+    setRooms([]);
+  }
+};
+
+// Fetch rooms by campus ID
+const fetchRoomsByCampus = async (campusId) => {
+  try {
+    setReserveLoading(true);
+    
+    // Get token from authorization header
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    
+    // Make direct API call
+    const response = await axiosInstance.post('getrooms', {
+      token: token,
+      campusID: campusId
+    });
+    
+    console.log('Rooms data direct response:', response.data);
+    
+    // Check for different room data structures based on the response log
+    // Log the full response to better understand the structure
+    console.log('Full rooms response structure:', response.data);
+    
+    if (response.data) {
+      let roomArray = [];
+      
+      // Handle different possible room data structures
+      if (response.data.rooms && Array.isArray(response.data.rooms)) {
+        roomArray = response.data.rooms;
+      } else if (response.data.r && Array.isArray(response.data.r)) {
+        roomArray = response.data.r;
+      } else if (response.data.room && Array.isArray(response.data.room)) {
+        roomArray = response.data.room;
+      }
+      
+      if (roomArray.length > 0) {
+        const formattedRooms = roomArray.map(room => ({
+          id: room.room || room.roomId || room.roomID,
+          name: room.roomName || room.name,
+          number: room.roomNumber || ''
+        }));
+        console.log('Formatted rooms:', formattedRooms);
+        setRooms(formattedRooms);
+      } else {
+        console.log('No rooms found in response');
+        setRooms([]);
+      }
+    } else {
+      notification.error({
+        message: 'Failed to load rooms',
+        description: 'No rooms found in this campus'
+      });
+      setRooms([]);
+    }
+  } catch (error) {
+    console.error('Failed to fetch rooms:', error);
+    notification.error({
+      message: 'Failed to load rooms',
+      description: error.message || 'Unknown error'
+    });
+    setRooms([]);
+  } finally {
+    setReserveLoading(false);
+  }
+};
+
+// Handle room change
+const handleRoomChange = (value) => {
+  console.log('Selected room:', value);
+  setSelectedRoom(value);
+  setDevices([]); // Clear devices when room changes
+  reserveForm.setFieldsValue({ itemId: undefined });
+
+  if (value) {
+    fetchDevicesByRoom(value);
+  }
+};
+
+// Function to fetch devices by room
+const fetchDevicesByRoom = async (roomId) => {
+  if (!roomId) return;
+
+  
+  try {
+    setReserveLoading(true);
+    
+    // Get token from authorization header
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    
+    // Make direct API call
+    const response = await axiosInstance.post('getitems', {
+      token: token,
+      roomID: roomId
+    });
+    
+    console.log('Devices data direct response:', response.data);
+    
+    // Log full response for debugging
+    console.log('Full devices response structure:', response.data);
+    
+    // Check for device property or direct array
+    if (response.data) {
+      let deviceArray = [];
+      
+      // Handle different possible response structures
+      if (Array.isArray(response.data)) {
+        deviceArray = response.data;
+      } else if (response.data.device && Array.isArray(response.data.device)) {
+        deviceArray = response.data.device;
+      } else if (response.data.d && Array.isArray(response.data.d)) {
+        deviceArray = response.data.d;
+      } else if (response.data.items && Array.isArray(response.data.items)) {
+        deviceArray = response.data.items;
+      } else if (response.data.devices && Array.isArray(response.data.devices)) {
+        deviceArray = response.data.devices;
+      }
+      
+      // Filter devices that are available (state 'A')
+      const availableDevices = deviceArray
+        .filter(device => device.state === 'A')
+        .map(device => ({
+          deviceId: device.deviceId || device.deviceID,  // Handle both naming conventions
+          name: device.deviceName || device.name,
+          state: device.state,
+          roomId: device.roomId || device.roomID
+        }));
+      
+      console.log('Formatted devices:', availableDevices);
+      setDevices(availableDevices);
+    } else {
+      setDevices([]);
+      notification.error({
+        message: 'No available devices',
+        description: 'No available devices found in this room'
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching devices:', error);
+    notification.error({
+      message: 'Failed to fetch device data',
+      description: error.message || 'Unknown error'
+    });
+    setDevices([]);
+  } finally {
+    setReserveLoading(false);
+  }
+};
+
   
   // Mock function to fetch borrow records
   const fetchBorrowRecords = async () => {
@@ -314,75 +524,96 @@ const Borrow = () => {
     }
   };
   
-  // Mock function to check item details
-  const handleCheckItem = async () => {
-    if (!checkRfidValue) {
-      notification.warning({
-        message: 'No RFID Value',
-        description: 'Please scan an RFID tag first'
-      });
-      return;
-    }
-    
-    try {
-      setCheckLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      // Mock data
-      setItemDetails({
-        id: 123,
-        name: 'Demo Item',
-        category: 'Electronic',
-        rfidTag: checkRfidValue,
-        status: 'Available',
-        location: 'Main Storage',
-        lastBorrowed: '2025-04-01'
-      });
-    } catch (error) {
-      console.error('Error checking item:', error);
-      notification.error({
-        message: 'Item Check Failed',
-        description: error.toString()
-      });
-    } finally {
-      setCheckLoading(false);
-    }
-  };
+
   
-  // Mock function for reservation
+  // Function for item reservation
   const handleReserveItem = async () => {
     try {
       const values = await reserveForm.validateFields();
       setReserveLoading(true);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Validate date period
+      const startDate = values.startDate;
+      const endDate = values.endDate;
       
-      notification.success({
-        message: 'Reservation Successful',
-        description: `You have successfully reserved ${values.itemName} from ${values.startDate} to ${values.endDate}`
-      });
+      // Calculate the difference in days
+      const diffTime = Math.abs(endDate - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      reserveForm.resetFields();
+      if (diffDays > 30) {
+        notification.error({
+          message: 'Invalid Date Range',
+          description: 'The reservation period cannot exceed 30 days.'
+        });
+        setReserveLoading(false);
+        return;
+      }
+      
+      // Format the end date as YYYY-MM-DD
+      const formattedStartDate = startDate.format('YYYY-MM-DD');
+      const formattedEndDate = endDate.format('YYYY-MM-DD');
+      
+      // Call the reserveItem service function
+      const result = await reserveItem(values.itemId, formattedStartDate, formattedEndDate);
+      
+      if (result.success) {
+        notification.success({
+          message: 'Reservation Successful',
+          description: `Item has been successfully reserved until ${formattedEndDate}`
+        });
+        
+        // Reset form and reload devices
+        reserveForm.resetFields();
+        if (selectedRoom) {
+          fetchDevicesByRoom(selectedRoom);
+        }
+      } else {
+        // Handle error response
+        notification.error({
+          message: 'Reservation Failed',
+          description: result.error
+        });
+      }
     } catch (error) {
       console.error('Reservation error:', error);
       notification.error({
         message: 'Reservation Failed',
-        description: error.toString()
+        description: error.message || 'An unexpected error occurred'
       });
     } finally {
       setReserveLoading(false);
     }
   };
   
-  // Get current date and add 30 days for max date limit
+  // Get current date (start of day to avoid time comparison issues)
   const today = new Date();
-  const thirtyDaysLater = new Date(today);
-  thirtyDaysLater.setDate(today.getDate() + 30);
+  today.setHours(0, 0, 0, 0);
   
-  // Disable dates before today and after 30 days from now
-  const disabledDate = (current) => {
-    return current && (current < today || current > thirtyDaysLater);
+  // Function to disable dates before today for start date picker
+  const disabledStartDate = (current) => {
+    return current && current < today;
+  };
+  
+  // Function to disable dates for end date picker
+  // Prevents selecting dates before start date or more than 30 days after start date
+  const disabledEndDate = (current) => {
+    const startDate = reserveForm.getFieldValue('startDate');
+    
+    if (!startDate) {
+      // If no start date is selected yet, disable all dates before today
+      return current && current < today;
+    }
+    
+    // Convert to date objects for comparison (remove time component)
+    const startDateObj = new Date(startDate);
+    startDateObj.setHours(0, 0, 0, 0);
+    
+    // Calculate max date (30 days after start date)
+    const maxDate = new Date(startDateObj);
+    maxDate.setDate(startDateObj.getDate() + 30);
+    
+    // Disable dates before start date or after max date
+    return current && (current < startDateObj || current > maxDate);
   };
   
   // Borrow Tab Content
@@ -440,7 +671,7 @@ const Borrow = () => {
             >
               <DatePicker 
                 style={{ width: '100%' }} 
-                disabledDate={disabledDate}
+                disabledDate={disabledEndDate}
                 inputReadOnly={true}
                 placeholder="Select return date (within 30 days)"
               />
@@ -451,7 +682,7 @@ const Borrow = () => {
         <Divider />
         
         <Row gutter={24}>
-          <Col span={12}>
+          <Col span={12}> 
             <Button 
               icon={<ClearOutlined />} 
               onClick={() => {
@@ -497,29 +728,64 @@ const Borrow = () => {
         <Row gutter={[16, 16]}>
           <Col xs={24} md={12}>
             <Form.Item 
-              name="itemName" 
-              label="Item Name" 
-              rules={[{ required: true, message: 'Please select an item' }]}
+              name="campusId" 
+              label="Campus" 
+              rules={[{ required: true, message: 'Please select a campus' }]}
             >
-              <Select placeholder="Select an item to reserve">
-                <Select.Option value="laptop">Laptop</Select.Option>
-                <Select.Option value="projector">Projector</Select.Option>
-                <Select.Option value="camera">Camera</Select.Option>
-                <Select.Option value="microphone">Microphone</Select.Option>
+              <Select 
+                placeholder="Select a campus" 
+                onChange={handleCampusChange}
+                disabled={reserveLoading}
+              >
+                {campuses.map(campus => (
+                  <Select.Option key={campus.id} value={campus.id}>
+                    {campus.name}
+                  </Select.Option>
+                ))}
               </Select>
             </Form.Item>
           </Col>
           
           <Col xs={24} md={12}>
             <Form.Item
-              name="location"
-              label="Location"
-              rules={[{ required: true, message: 'Please select a location' }]}
+              name="roomId"
+              label="Room"
+              rules={[{ required: true, message: 'Please select a room' }]}
             >
-              <Select placeholder="Select pickup location">
-                <Select.Option value="mainLibrary">Main Library</Select.Option>
-                <Select.Option value="scienceLab">Science Lab</Select.Option>
-                <Select.Option value="mediaCenter">Media Center</Select.Option>
+              <Select 
+                placeholder="Select a room" 
+                onChange={handleRoomChange}
+                disabled={reserveLoading || !selectedCampus}
+              >
+                {rooms.map(room => (
+                  <Select.Option key={room.id} value={room.id}>
+                    {room.name} ({room.number})
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+          
+          <Col xs={24}>
+            <Form.Item 
+              name="itemId" 
+              label="Device" 
+              rules={[{ required: true, message: 'Please select a device to reserve' }]}
+            >
+              <Select 
+                placeholder="Select a device to reserve"
+                disabled={reserveLoading || !selectedRoom}
+                showSearch
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                }
+              >
+                {devices.map(device => (
+                  <Select.Option key={device.deviceId} value={device.deviceId}>
+                    {device.name}
+                  </Select.Option>
+                ))}
               </Select>
             </Form.Item>
           </Col>
@@ -530,7 +796,19 @@ const Borrow = () => {
               label="Start Date"
               rules={[{ required: true, message: 'Please select a start date' }]}
             >
-              <DatePicker style={{ width: '100%' }} />
+              <DatePicker 
+                style={{ width: '100%' }} 
+                disabledDate={disabledStartDate}
+                inputReadOnly={true}
+                onChange={(date) => {
+                  // When start date changes, validate end date
+                  const endDate = reserveForm.getFieldValue('endDate');
+                  if (endDate) {
+                    // Force revalidation of end date
+                    reserveForm.validateFields(['endDate']);
+                  }
+                }}
+              />
             </Form.Item>
           </Col>
           
@@ -539,24 +817,28 @@ const Borrow = () => {
               name="endDate"
               label="End Date"
               rules={[{ required: true, message: 'Please select an end date' }]}
+              extra="Reservation period cannot exceed 30 days"
             >
-              <DatePicker style={{ width: '100%' }} />
+              <DatePicker 
+                style={{ width: '100%' }} 
+                disabledDate={disabledEndDate}
+                inputReadOnly={true}
+              />
             </Form.Item>
           </Col>
           
-          <Col xs={24}>
-            <Form.Item
-              name="purpose"
-              label="Purpose of Reservation"
-            >
-              <Input.TextArea rows={4} placeholder="Please describe why you need this item" />
-            </Form.Item>
-          </Col>
+
         </Row>
         
         <Row justify="end">
           <Col>
-            <Button type="primary" htmlType="submit" icon={<BookOutlined />}>
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              icon={<BookOutlined />}
+              onClick={handleReserveItem}
+              disabled={reserveLoading || !selectedRoom || devices.length === 0}
+            >
               Submit Reservation
             </Button>
           </Col>
@@ -565,60 +847,7 @@ const Borrow = () => {
     </Spin>
   );
   
-  // Check Tab Content
-  const CheckTabContent = () => (
-    <Spin spinning={checkLoading}>
-      <Row gutter={[16, 16]}>
-        <Col xs={24}>
-          <Form form={checkForm} layout="inline" style={{ marginBottom: 16 }}>
-            <Form.Item label="RFID Tag" style={{ flex: 1 }}>
-              <Input
-                value={checkRfidValue}
-                onChange={(e) => setCheckRfidValue(e.target.value)}
-                placeholder="Scan or enter RFID tag..."
-                suffix={
-                  checkRfidValue ? (
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                  ) : null
-                }
-              />
-            </Form.Item>
-            <Form.Item>
-              <Button 
-                type="primary" 
-                onClick={handleCheckItem}
-                icon={<FileSearchOutlined />}
-              >
-                Check Item
-              </Button>
-            </Form.Item>
-          </Form>
-        </Col>
-        
-        {itemDetails && (
-          <Col xs={24}>
-            <Card title="Item Details" bordered={false}>
-              <Descriptions bordered column={{ xs: 1, sm: 2 }}>
-                <Descriptions.Item label="Item Name">{itemDetails.name}</Descriptions.Item>
-                <Descriptions.Item label="Category">{itemDetails.category}</Descriptions.Item>
-                <Descriptions.Item label="RFID Tag">{itemDetails.rfidTag}</Descriptions.Item>
-                <Descriptions.Item label="Status">
-                  <Text 
-                    type={itemDetails.status === 'Available' ? 'success' : 'danger'}
-                    strong
-                  >
-                    {itemDetails.status}
-                  </Text>
-                </Descriptions.Item>
-                <Descriptions.Item label="Location">{itemDetails.location}</Descriptions.Item>
-                <Descriptions.Item label="Last Borrowed">{itemDetails.lastBorrowed}</Descriptions.Item>
-              </Descriptions>
-            </Card>
-          </Col>
-        )}
-      </Row>
-    </Spin>
-  );
+
   
   // Borrow Records Tab Content
   const BorrowRecordsTabContent = () => {
@@ -742,16 +971,11 @@ const Borrow = () => {
             <ReserveTabContent />
           </TabPane>
           
-          <TabPane 
-            tab={<span><FileSearchOutlined /> Check</span>} 
-            key="3"
-          >
-            <CheckTabContent />
-          </TabPane>
+
           
           <TabPane 
             tab={<span><HistoryOutlined /> Borrow Records</span>} 
-            key="4"
+            key="3"
           >
             <BorrowRecordsTabContent />
           </TabPane>

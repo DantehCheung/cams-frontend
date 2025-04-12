@@ -739,4 +739,40 @@ export const getDeviceIdByRFID = async (rfid) => {
   }
 }
 
-
+// Reserve an item using the reservation API
+export const reserveItem = async (itemId, borrowRecordDate, endDate) => {
+  try {
+    // Get token from authorization header
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    
+    // Prepare the request data
+    const requestData = {
+      token: token,
+      itemID: itemId,
+      borrowRecordDate: borrowRecordDate,
+      endDate: endDate
+    };
+    
+    console.log('Sending reservation request:', requestData);
+    
+    // Send the reservation request
+    const response = await axiosInstance.post('br/reservation', requestData);
+    
+    console.log('Reservation response:', response.data);
+    
+    // Check if the request was successful
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    } else {
+      // Handle error response
+      let errorMessage = 'Sorry, this item already reserved by somebody';
+      if (response.data && response.data.message) {
+        errorMessage = response.data.message;
+      }
+      return { success: false, error: errorMessage, data: response.data };
+    }
+  } catch (error) {
+    console.error('Reservation error:', error);
+    return { success: false, error: error.message || 'An unexpected error occurred' };
+  }
+}
