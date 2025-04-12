@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Card, Form, Input, Button, notification, Select, Row, Col, Spin, Typography, Divider, Tabs, Table, Space, DatePicker, Descriptions } from "antd";
+import { Card, Form, Input, Button, notification, Select, Row, Col, Spin, Typography, Divider, Tabs, Table, Space, DatePicker, Descriptions, Checkbox } from "antd";
 import { ScanOutlined, ClearOutlined, CheckCircleOutlined, HistoryOutlined, FileSearchOutlined, BookOutlined } from '@ant-design/icons';
 import "./borrow.css"; // css file
 // insert react redux hooks
@@ -8,6 +8,7 @@ import axiosInstance from "../../api/axios";
 import { borrowSuccess } from "../../store/modules/borrowSlice";
 import { assetService } from "../../api";
 import { reserveItem } from "../../api/services/asset";
+import { useAuth } from "../../context/AuthContext";
 
 // Get electron IPC if we're in the desktop app
 let electron;
@@ -30,9 +31,25 @@ const Borrow = () => {
   const rfidOutputRef = useRef(null);
   const containerRef = useRef(null);
   const { items } = useSelector((state) => state.borrow);
+  const authContext = useAuth();
+
+  const [tempCNAValue, setTempCNAValue] = useState('');
+
+  const [recordsParams, setRecordsParams] = useState({
+    page: 1,
+    pageSize: 10,
+    borrowDateAfter: null,
+    returned: false,
+    targetCNA: null
+  });
+
+  useEffect(() => {
+    setTempCNAValue(recordsParams.targetCNA || '');
+  }, [recordsParams.targetCNA]);
 
   // Set a page identifier when component mounts
   useEffect(() => {
+    console.log('Current access level:', authContext.getAccessLevel());
     // Set the current active page to borrow
     if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
       window.ARSInterface.setActivePage('borrow');
@@ -273,17 +290,9 @@ const Borrow = () => {
   const [selectedCampus, setSelectedCampus] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
   
-
-  
   // State for Borrow Record tab
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [borrowRecords, setBorrowRecords] = useState([]);
-  const [recordsParams, setRecordsParams] = useState({
-    page: 1,
-    pageSize: 10,
-    startDate: null,
-    endDate: null
-  });
   
   // Function to fetch campus data
   const fetchCampuses = async () => {
@@ -506,11 +515,59 @@ const fetchDevicesByRoom = async (roomId) => {
       setRecordsLoading(true);
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
-      // Mock data
+      // Mock data with new structure
       const mockRecords = [
-        { id: 1, itemName: 'Laptop', rfidTag: 'E280110640000252B96AAD01', borrowDate: '2025-04-09', returnDate: '2025-04-16', status: 'Active' },
-        { id: 2, itemName: 'Projector', rfidTag: 'E280110640000252B96AAD02', borrowDate: '2025-04-08', returnDate: '2025-04-15', status: 'Active' },
-        { id: 3, itemName: 'Tablet', rfidTag: 'E280110640000252B96AAD03', borrowDate: '2025-04-05', returnDate: '2025-04-12', status: 'Returned' }
+        { 
+          id: 1, 
+          borrowDate: "2025-04-09",
+          leasePeriod: "2025-04-30",
+          deviceName: "Laptop",
+          borrowerCNA: "123456789",
+          borrowerFirstName: "John",
+          borrowerLastName: "Doe",
+          returnDate: null,
+          checkDate: null,
+          inspectorCNA: null,
+          inspectorFirstName: null,
+          inspectorLastName: null,
+          roomNumber: "301",
+          roomName: "Computer Lab",
+          campusShortName: "IVE(CW)"
+        },
+        { 
+          id: 2, 
+          borrowDate: "2025-04-05",
+          leasePeriod: "2025-05-15",
+          deviceName: "Projector", 
+          borrowerCNA: "987654321",
+          borrowerFirstName: "Jane",
+          borrowerLastName: "Smith",
+          returnDate: null,
+          checkDate: null,
+          inspectorCNA: null,
+          inspectorFirstName: null,
+          inspectorLastName: null,
+          roomNumber: "205",
+          roomName: "Lecture Hall",
+          campusShortName: "IVE(CW)"
+        },
+        { 
+          id: 3, 
+          borrowDate: "2025-03-25",
+          leasePeriod: "2025-04-25",
+          deviceName: "Tablet", 
+          borrowerCNA: "567891234",
+          borrowerFirstName: "Alex",
+          borrowerLastName: "Wong",
+          returnDate: "2025-04-10",
+          checkDate: "2025-04-10",
+          inspectorCNA: "111222333",
+          inspectorFirstName: "Mary",
+          inspectorLastName: "Chen",
+          roomNumber: "349",
+          roomName: "InnoLab",
+          campusShortName: "IVE(CW)"
+        }
       ];
       setBorrowRecords(mockRecords);
     } catch (error) {
@@ -851,51 +908,122 @@ const fetchDevicesByRoom = async (roomId) => {
   
   // Borrow Records Tab Content
   const BorrowRecordsTabContent = () => {
+    // Local state for CNA input to prevent focus issues
+    const [tempCNAValue, setTempCNAValue] = useState(recordsParams.targetCNA || '');
+
+    useEffect(() => {
+      setTempCNAValue(recordsParams.targetCNA || '');
+    }, [recordsParams.targetCNA]);
+
+    // Define the columns to show all available fields
     const columns = [
       {
-        title: 'Item Name',
-        dataIndex: 'itemName',
-        key: 'itemName',
+        title: 'Device Name',
+        dataIndex: 'deviceName',
+        key: 'deviceName',
+        sorter: (a, b) => a.deviceName.localeCompare(b.deviceName),
       },
       {
-        title: 'RFID Tag',
-        dataIndex: 'rfidTag',
-        key: 'rfidTag',
+        title: 'Campus',
+        dataIndex: 'campusShortName',
+        key: 'campusShortName',
+      },
+      {
+        title: 'Room Number',
+        dataIndex: 'roomNumber',
+        key: 'roomNumber',
+      },
+      {
+        title: 'Room Name',
+        dataIndex: 'roomName',
+        key: 'roomName',
+      },
+      {
+        title: 'Borrower First Name',
+        dataIndex: 'borrowerFirstName',
+        key: 'borrowerFirstName',
+      },
+      {
+        title: 'Borrower Last Name',
+        dataIndex: 'borrowerLastName',
+        key: 'borrowerLastName',
+      },
+      {
+        title: 'Borrower CNA',
+        dataIndex: 'borrowerCNA',
+        key: 'borrowerCNA',
+        render: (text) => {
+          if (text) {
+            return text;
+          }
+          return '-';
+        }
       },
       {
         title: 'Borrow Date',
         dataIndex: 'borrowDate',
         key: 'borrowDate',
+        sorter: (a, b) => new Date(a.borrowDate) - new Date(b.borrowDate),
+      },
+      {
+        title: 'Lease Period',
+        dataIndex: 'leasePeriod',
+        key: 'leasePeriod',
       },
       {
         title: 'Return Date',
         dataIndex: 'returnDate',
         key: 'returnDate',
+        render: (text) => {
+          if (text) {
+            return text;
+          }
+          return '-';
+        }
       },
       {
-        title: 'Status',
-        dataIndex: 'status',
-        key: 'status',
-        render: (status) => (
-          <Text 
-            type={status === 'Active' ? 'warning' : (status === 'Returned' ? 'success' : 'danger')}
-            strong
-          >
-            {status}
-          </Text>
-        ),
+        title: 'Check Date',
+        dataIndex: 'checkDate',
+        key: 'checkDate',
+        render: (text) => {
+          if (text) {
+            return text;
+          }
+          return '-';
+        }
       },
       {
-        title: 'Actions',
-        key: 'actions',
-        render: (_, record) => (
-          <Space size="middle">
-            <Button type="link" size="small">View Details</Button>
-            {record.status === 'Active' && (
-              <Button type="link" size="small">Return</Button>
-            )}
-          </Space>
-        ),
+        title: 'Inspector CNA',
+        dataIndex: 'inspectorCNA',
+        key: 'inspectorCNA',
+        render: (text) => {
+          if (text) {
+            return text;
+          }
+          return '-';
+        }
+      },
+      {
+        title: 'Inspector First Name',
+        dataIndex: 'inspectorFirstName',
+        key: 'inspectorFirstName',
+        render: (text) => {
+          if (text) {
+            return text;
+          }
+          return '-';
+        }
+      },
+      {
+        title: 'Inspector Last Name',
+        dataIndex: 'inspectorLastName',
+        key: 'inspectorLastName',
+        render: (text) => {
+          if (text) {
+            return text;
+          }
+          return '-';
+        }
       },
     ];
     
@@ -903,20 +1031,60 @@ const fetchDevicesByRoom = async (roomId) => {
       <div>
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} md={8}>
-            <DatePicker.RangePicker 
-              style={{ width: '100%' }}
-              onChange={(dates) => {
-                if (dates) {
+            <Form.Item label="Borrow Date After" style={{ marginBottom: 0 }}>
+              <DatePicker 
+                style={{ width: '100%' }}
+                onChange={(date) => {
                   setRecordsParams({
                     ...recordsParams,
-                    startDate: dates[0],
-                    endDate: dates[1]
+                    borrowDateAfter: date
                   });
-                }
-              }}
-            />
+                }}
+                inputReadOnly={true}
+              />
+            </Form.Item>
           </Col>
-          <Col xs={24} md={16}>
+          <Col xs={24} md={8}>
+            <Form.Item label="Include Returned" style={{ marginBottom: 0 }}>
+              <Checkbox 
+                checked={recordsParams.returned}
+                onChange={(e) => {
+                  setRecordsParams({
+                    ...recordsParams,
+                    returned: e.target.checked
+                  });
+                }}
+              >
+                Show Returned Items
+              </Checkbox>
+            </Form.Item>
+          </Col>
+
+          {authContext.getAccessLevel() < 1000 && (
+            <Col xs={24} md={8}>
+              <Form.Item label="Target CNA" style={{ marginBottom: 0 }}>
+                <Input 
+                  placeholder="Enter CNA"
+                  value={tempCNAValue}
+                  onChange={(e) => {
+                    setTempCNAValue(e.target.value);
+                  }}
+                  onBlur={() => {
+                    setRecordsParams({
+                      ...recordsParams,
+                      targetCNA: tempCNAValue.length > 0 ? tempCNAValue : null
+                    });
+                  }}
+                  maxLength={9}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                  Maximum 9 characters
+                </div>
+              </Form.Item>
+            </Col>
+          )}
+          <Col xs={24} md={8}>
             <Button 
               type="primary" 
               icon={<FileSearchOutlined />}
@@ -925,7 +1093,18 @@ const fetchDevicesByRoom = async (roomId) => {
             >
               Search
             </Button>
-            <Button icon={<ClearOutlined />}>
+            <Button 
+              icon={<ClearOutlined />}
+              onClick={() => {
+                setRecordsParams({
+                  ...recordsParams,
+                  borrowDateAfter: null,
+                  returned: false,
+                  targetCNA: null
+                });
+                setTempCNAValue('');
+              }}
+            >
               Clear Filters
             </Button>
           </Col>
@@ -970,8 +1149,6 @@ const fetchDevicesByRoom = async (roomId) => {
           >
             <ReserveTabContent />
           </TabPane>
-          
-
           
           <TabPane 
             tab={<span><HistoryOutlined /> Borrow Records</span>} 
