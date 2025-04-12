@@ -776,3 +776,52 @@ export const reserveItem = async (itemId, borrowRecordDate, endDate) => {
     return { success: false, error: error.message || 'An unexpected error occurred' };
   }
 }
+
+// Fetch borrow records with various filters
+export const getBorrowRecords = async (params) => {
+  try {
+    // Get token from authorization header
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    
+    // Prepare the request data with optional filters
+    const requestData = {
+      token: token,
+      targetCNA: params.targetCNA || '',
+      borrowdDateAfter: params.borrowDateAfter || '',
+      returned: params.returned || false
+    };
+    
+    console.log('Fetching borrow records with params:', requestData);
+    
+    // Send the API request
+    const response = await axiosInstance.post('br/getborrowrecord', requestData);
+    
+    console.log('Borrow records response:', response.data);
+    
+    // Check if the request was successful and contains borrow records
+    if (response.data && response.data.borrowRecord) {
+      return { 
+        success: true, 
+        records: response.data.borrowRecord,
+        totalRecords: response.data.borrowRecord.length,
+        data: response.data 
+      };
+    } else {
+      // Handle response with no records
+      return { 
+        success: true, 
+        records: [], 
+        totalRecords: 0,
+        data: response.data 
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching borrow records:', error);
+    return { 
+      success: false, 
+      records: [],
+      totalRecords: 0,
+      error: error.message || 'Failed to fetch borrow records' 
+    };
+  }
+}

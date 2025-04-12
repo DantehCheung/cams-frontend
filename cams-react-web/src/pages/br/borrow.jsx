@@ -7,7 +7,7 @@ import { useSelector, useDispatch } from "react-redux";
 import axiosInstance from "../../api/axios";
 import { borrowSuccess } from "../../store/modules/borrowSlice";
 import { assetService } from "../../api";
-import { reserveItem } from "../../api/services/asset";
+import { reserveItem, getBorrowRecords } from "../../api/services/asset";
 import { useAuth } from "../../context/AuthContext";
 
 // Get electron IPC if we're in the desktop app
@@ -509,72 +509,58 @@ const fetchDevicesByRoom = async (roomId) => {
 };
 
   
-  // Mock function to fetch borrow records
+  // Function to fetch borrow records from API
   const fetchBorrowRecords = async () => {
     try {
       setRecordsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      // Mock data with new structure
-      const mockRecords = [
-        { 
-          id: 1, 
-          borrowDate: "2025-04-09",
-          leasePeriod: "2025-04-30",
-          deviceName: "Laptop",
-          borrowerCNA: "123456789",
-          borrowerFirstName: "John",
-          borrowerLastName: "Doe",
-          returnDate: null,
-          checkDate: null,
-          inspectorCNA: null,
-          inspectorFirstName: null,
-          inspectorLastName: null,
-          roomNumber: "301",
-          roomName: "Computer Lab",
-          campusShortName: "IVE(CW)"
-        },
-        { 
-          id: 2, 
-          borrowDate: "2025-04-05",
-          leasePeriod: "2025-05-15",
-          deviceName: "Projector", 
-          borrowerCNA: "987654321",
-          borrowerFirstName: "Jane",
-          borrowerLastName: "Smith",
-          returnDate: null,
-          checkDate: null,
-          inspectorCNA: null,
-          inspectorFirstName: null,
-          inspectorLastName: null,
-          roomNumber: "205",
-          roomName: "Lecture Hall",
-          campusShortName: "IVE(CW)"
-        },
-        { 
-          id: 3, 
-          borrowDate: "2025-03-25",
-          leasePeriod: "2025-04-25",
-          deviceName: "Tablet", 
-          borrowerCNA: "567891234",
-          borrowerFirstName: "Alex",
-          borrowerLastName: "Wong",
-          returnDate: "2025-04-10",
-          checkDate: "2025-04-10",
-          inspectorCNA: "111222333",
-          inspectorFirstName: "Mary",
-          inspectorLastName: "Chen",
-          roomNumber: "349",
-          roomName: "InnoLab",
-          campusShortName: "IVE(CW)"
+      
+      // Format date parameter if it exists
+      let formattedDate = null;
+      if (recordsParams.borrowDateAfter) {
+        formattedDate = recordsParams.borrowDateAfter.format('YYYY-MM-DD');
+      }
+      
+      // Prepare parameters for API call
+      const params = {
+        targetCNA: recordsParams.targetCNA,
+        borrowDateAfter: formattedDate,
+        returned: recordsParams.returned
+      };
+      
+      console.log('Fetching borrow records with params:', params);
+      
+      // Call the API service
+      const result = await getBorrowRecords(params);
+      
+      if (result.success) {
+        // Update the borrow records with data from API
+        setBorrowRecords(result.records);
+        
+        // Show success message if records were found
+        if (result.records.length > 0) {
+          notification.success({
+            message: 'Records Retrieved',
+            description: `Found ${result.records.length} borrow record(s)`
+          });
+        } else {
+          // Show info message if no records were found
+          notification.info({
+            message: 'No Records Found',
+            description: 'No borrow records match your search criteria'
+          });
         }
-      ];
-      setBorrowRecords(mockRecords);
+      } else {
+        // Handle error from API
+        notification.error({
+          message: 'Failed to fetch records',
+          description: result.error || 'An unexpected error occurred'
+        });
+      }
     } catch (error) {
       console.error('Error fetching borrow records:', error);
       notification.error({
         message: 'Failed to fetch records',
-        description: error.toString()
+        description: error.message || error.toString()
       });
     } finally {
       setRecordsLoading(false);
