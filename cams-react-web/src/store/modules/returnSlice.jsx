@@ -14,7 +14,7 @@ const returnSlice = createSlice({
             state.items = action.payload;
         },
 
-        returnError: (action,state) => {
+        returnError: (state,action) => {
             state.error = action.payload;
         },
         

@@ -30,7 +30,8 @@ const routePermissionMap = {
   // Borrow & Return
   "/br/borrow": PAGE_PERMISSIONS.BORROW,
   "/br/return": PAGE_PERMISSIONS.RETURN,
-  
+  "/br/check": PAGE_PERMISSIONS.CHECK,
+
   // Manage
   "/manage/addUser": PAGE_PERMISSIONS.USER_MANAGEMENT,
   "/manage/genReport": PAGE_PERMISSIONS.REPORT,

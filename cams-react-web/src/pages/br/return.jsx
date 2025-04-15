@@ -1,80 +1,271 @@
-import React, { useState } from "react";
-import { Card, Form, Input, Button, Table, notification } from "antd";
+import React, { useState ,useRef, useEffect} from "react";
+import { Card, Form, Input, Button, notification, Select, Row, Col, Spin, Typography, Divider, Tabs, Table, Space, DatePicker, Descriptions, Checkbox } from "antd";
+const { Text } = Typography;
 import "./return.css";
+import { ScanOutlined, ClearOutlined, CheckCircleOutlined, HistoryOutlined, FileSearchOutlined, BookOutlined } from '@ant-design/icons';
 import {useDispatch,useSelector} from 'react-redux';
 import { returnSuccess } from "../../store/modules/returnSlice";
+import { assetService } from "../../api";
+
+// Get Electron IPC 
+let electron;
+
+try{
+  electron = window.require && window.require('electron');
+}catch(e){
+  console.log("Running in browser environment, not Electron.");
+}
+
+const ipcRenderer = electron?.ipcRenderer;
+const inBrowser = !ipcRenderer;
+
+
+  
 
 const Return = () => {
   const [returnForm] = Form.useForm();
-  // const [items, setItems] = useState([]);
+  const [rfidValue, setRfidValue] = useState('');
+  const [isChecked, setIsChecked] = useState(false); // state to control Confirm Return button
+  const [returnList, setReturnList] = useState([]);
+  const rfidOutputRef = useRef(null);
+  const containerRef = useRef(null);
   const dispatch = useDispatch();
-  const {items} = useSelector((state) => state.return); // State get return tag get reducer
+  const { items } = useSelector((state) => state.return); // State get return tag get reducer
+
+  // Set a page identifier when component mounts (for RFID system)
+  useEffect(() => {
+    if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
+      window.ARSInterface.setActivePage('return');
+      console.log('Set active page to: return');
+    } else {
+      window.activeRFIDPage = 'return';
+      console.log('Set activeRFIDPage to: return using fallback');
+    }
+    // Set focus to this component so it captures RFID events
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+    // Cleanup when component unmounts
+    return () => {
+      if (window.ARSInterface && typeof window.ARSInterface.clearActivePage === 'function') {
+        window.ARSInterface.clearActivePage();
+      } else {
+        window.activeRFIDPage = null;
+      }
+    };
+  }, []);
+
+  // Handle focus events to ensure this page captures RFID events when in view
+  const handleFocus = () => {
+    console.log('Return page received focus');
+    if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
+      window.ARSInterface.setActivePage('return');
+    } else {
+      window.activeRFIDPage = 'return';
+    }
+  };
+
+  // Function to clear RFID data
+  const clearData = () => {
+    setRfidValue('');
+    if (window.ARSInterface && typeof window.ARSInterface.clearData === 'function') {
+      window.ARSInterface.clearData();
+      console.log('Clearing RFID data via ARSInterface');
+    }
+    if (!inBrowser && ipcRenderer) {
+      ipcRenderer.send('clearRfid');
+      console.log('Sent clearRfid command to Electron');
+    }
+    console.log('RFID data cleared');
+  };
 
   const handleAddItem = () => {
-    const itemName = returnForm.getFieldValue("returnItem");
-    const studentId = returnForm.getFieldValue("studentId");
-    if (!studentId || !itemName) {
-      notification.error({
-        message: "Return Failed",
-        description: "Please enter a Student ID or Item ID.",
-      });
-      return;
-    }
-    dispatch(returnSuccess([...items, { key: Date.now(), name: itemName }]));
-    returnForm.resetFields(["returnItem"]);
-  };
+  if (!rfidValue) {
+    notification.error({
+      message: "No RFID Detected",
+      description: "Please scan an RFID tag before adding.",
+    });
+    return;
+  }
+  // Check for duplicates
+  if (items.some(item => item.rfid === rfidValue)) {
+    notification.warning({
+      message: "Duplicate RFID",
+      description: "This RFID tag is already in the list.",
+    });
+    return;
+  }
+  // Add the RFID value to the items list
+  dispatch(returnSuccess([...items, { key: Date.now(), rfid: rfidValue }]));
+  setRfidValue(""); // Clear for next scan
+};
 
-  const handleReturn = async () => {
-    try {
-      //  API 
-      const response = await new Promise((resolve) =>
-        setTimeout(() => resolve(items), 1000)
-      );
-
-      // assume return success table empty
-      dispatch(returnSuccess([]));
-      
+const handleCheck = async () => {
+  try {
+    const RFIDList = items.map((item) => item.rfid);
+    const result = await assetService.checkReturn({ rfidlist: RFIDList });
+    console.log("CheckReturn response:", result);
+    if (result && Array.isArray(result.checkedDevice) && result.checkedDevice.length > 0) {
       notification.success({
-        message: "Return Completed",
-        description: "Item(s) returned successfully. Thank you!",
+        message: "Checked Devices",
+        description: `Checked ${result.checkedDevice.length} device(s).`,
       });
-    } catch (err) {
-      dispatch(returnFailure(err.toString()));
-      notification.error({
-        message: "Return Failed",
-        description: err.toString(),
+      // Build a unique list of device IDs from the checkedDevice array using a for loop
+      const idList = [];
+      for (const device of result.checkedDevice) {
+        if (!idList.includes(device.deviceID)) {
+          idList.push(device.deviceID);
+        }
+      }
+      setReturnList(idList);
+      // Enable Confirm Return button once check is successful.
+      setIsChecked(true);
+    } else {
+      notification.warning({
+        message: "No Devices Checked",
+        description: "No devices were found or checked.",
       });
+      setIsChecked(false);
+      setReturnList([]);
     }
-  };
+  } catch (error) {
+    notification.error({
+      message: "Check Failed",
+      description: error?.message || error.toString(),
+    });
+    setIsChecked(false);
+    setReturnList([]);
+  }
+};
+ 
+const handleReturn = async () => {
+  try {
+ 
+    const payload = {
+      returnList: returnList, // This list is built in handleCheck
+    };
+
+    // Call the return API method (adjust assetService.returnItem as needed)
+    const response = await assetService.returnItem(payload);
+    // Assume return success - clear the table and reset states
+    dispatch(returnSuccess([]));
+    setIsChecked(false);
+    setReturnList([]);
+    notification.success({
+      message: "Return Completed",
+      description: "Item(s) returned successfully. Thank you!",
+    });
+  } catch (err) {
+    dispatch(returnFailure(err.toString()));
+    notification.error({
+      message: "Return Failed",
+      description: err.toString(),
+    });
+  }
+};
+
+
+    // Listen for RFID data
+    useEffect(() => {
+      if (inBrowser) {
+        // Browser environment - use custom event
+        const handleBrowserRfidEvent = (event) => {
+          // Log the event to our hidden div for debugging
+          if (rfidOutputRef.current) {
+            rfidOutputRef.current.innerHTML += `RFID browser event: ${JSON.stringify(event.detail)}<br/>`;
+          }
+          
+          // Example format: {tid: "E280110640000252B96AAD01"}
+          if (event.detail && event.detail.tid) {
+            console.log('Browser RFID event received:', event.detail.tid);
+            setRfidValue(event.detail.tid);
+          }
+        };
+  
+        // Listen for browser custom event
+        window.addEventListener('rfidData', handleBrowserRfidEvent);
+        
+        // We'll add the test buttons in the JSX instead for better control
+        
+        return () => {
+          window.removeEventListener('rfidData', handleBrowserRfidEvent);
+        };
+      } else {
+        // Desktop environment - use Electron IPC
+        const handleElectronRfidTag = (event, message) => {
+          try {
+            if (rfidOutputRef.current) {
+              rfidOutputRef.current.innerHTML += `RFID event (Electron): ${message}<br/>`;
+            }
+            
+            const tagObj = JSON.parse(message);
+            if (tagObj && tagObj.TID) {
+              console.log('Electron RFID TID received:', tagObj.TID);
+              setRfidValue(tagObj.TID);
+            }
+          } catch (error) {
+            console.error('Error parsing RFID tag data:', error);
+          }
+        };
+        
+        // Setup Electron IPC listeners
+        ipcRenderer.on('newScannedTag', handleElectronRfidTag);
+        
+        return () => {
+          ipcRenderer.removeListener('newScannedTag', handleElectronRfidTag);
+        };
+      }
+    }, [inBrowser]);
 
   const columns = [
-    { title: "Item", dataIndex: "name", key: "name" },
+    { title: "RFID Tag", dataIndex: "rfid", key: "rfid" },
   ];
 
+
+
   return (
-    <div className="return-container">
+    <div className="return-container" ref={containerRef} tabIndex={0} onFocus={handleFocus}>
       <Card title="Return Items (Scan RFID or Add Manually)">
-        <Form form={returnForm} layout="inline">
-          <Form.Item name="returnItem" label="Item">
-            <Input placeholder="Item to return" />
-          </Form.Item>
-          <Form.Item>
-          <Button style={{marginRight:'10px'}}>Scan Item RFID</Button>
-            <Button type="primary" onClick={handleAddItem}>
-              Add to List
-            </Button>
-          </Form.Item>
-          <Form.Item
-            name="studentId"
-            label="Student ID"
-            rules={[{ required: true }]}
-          >
-            <Input placeholder="Student ID Number" />
-          </Form.Item>
-          <Form.Item>
-            <Button>Scan Student RFID</Button>
-          </Form.Item>
+
+        <Form form={returnForm} layout="vertical">
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={16}>
+              <Form.Item name="returnItem" label="RFID Status">
+                <div className="rfid-status-box" style={{
+                  padding: '12px 16px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '6px',
+                  backgroundColor: rfidValue ? '#f6ffed' : '#f5f5f5',
+                  borderColor: rfidValue ? '#b7eb8f' : '#d9d9d9',
+                  height: '50px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '16px'
+                }}>
+                  {rfidValue ? (
+                    <>
+                      <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px', marginRight: '8px' }} />
+                      <Text strong>RFID Tag Detected: {rfidValue}</Text>
+                    </>
+                  ) : (
+                    <Text type="secondary">Waiting for RFID scan...</Text>
+                  )}
+                </div>
+                {/* Debug output for RFID events (optional, for development) */}
+                <div ref={rfidOutputRef} style={{ display: 'none' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Button icon={<ClearOutlined />} onClick={clearData} type="default" block>
+                Clear RFID
+              </Button>
+              <Button type="primary" onClick={handleAddItem} block>
+                Add to List
+              </Button>
+            </Col>
+          </Row>
         </Form>
+
         <Table
           columns={columns}
           dataSource={items}
@@ -82,9 +273,18 @@ const Return = () => {
           style={{ marginTop: 16 }}
         />
         <Button
+          icon={<CheckCircleOutlined />} 
+          onClick={handleCheck}
+          style={{marginRight: 10 }}
+        >
+          Check Return
+        </Button>
+        <Button
           type="primary"
+          icon={<ScanOutlined />}
           onClick={handleReturn}
           style={{ marginTop: 16 }}
+          disabled={!isChecked} // Disabled until check is successful
         >
           Confirm Return
         </Button>

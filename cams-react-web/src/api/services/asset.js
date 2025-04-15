@@ -828,31 +828,45 @@ export const getBorrowRecords = async (params) => {
 
 
 // return///////////////////////////////////////////////////////////////////////////////////////////////
-export const checkReturn = async(checkReturnParams) => {
-try{
+export const checkReturn = async (checkReturnParams) => {
+  try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-
-    console.log(checkReturnParams);
-
     const requestData = {
-      token:token,
-      RFIDList:checkReturnParams.rfidlist
-    }
+      token: token,
+      RFIDList: checkReturnParams.rfidlist
+    };
 
-    // Send the API request
     const response = await axiosInstance.post('br/check', requestData);
-    
-    console.log('Checked Data:', response.data);
-    
-    // Check if the request was successful and contains borrow records
+
+    // Assuming the backend returns something like [{ deviceID, deviceName, partsChecked }]
     if (response.data) {
-      return { 
-        deviceID: response.data.deviceID,
-        deviceName: response.data.deviceName,
-        partsChecked: response. partsChecked
+      // Shape the response so it has a "checkedDevice" property
+      return {
+        checkedDevice: response.data.checkedDevice
       };
     }
   } catch (error) {
     console.error('Error checking return:', error);
+  }
+};
+
+
+export const returnItem = async (returnData) => {
+  try {
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    const response = await axiosInstance.post('br/return', {
+      token: token,
+      returnList: returnData.returnList,
+    });
+
+    console.log('Return item response:', response.data);
+
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }
+    return { success: false, error: response.data };
+  } catch (error) {
+    console.error('Error returning item:', error);
+    return { success: false, error: error.message || 'An unexpected error occurred' };
   }
 }

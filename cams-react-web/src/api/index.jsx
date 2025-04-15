@@ -51,6 +51,7 @@ export const PAGE_PERMISSIONS = {
   // 16-23 位
   RFID: 1 << 16,                         // 2^16 = 65536
   USER_INFO: 1 << 17,                    // 2^17 = 131072
+  CHECK: 1 << 18,                        // 2^18 = 262144
 };
 
 // 定義兼容性別名，以防 auth.js 使用不同名稱

@@ -12,3 +12,7 @@
     margin-right: 16px;
     margin-bottom: 16px;
   }
+
+  .checked-row {
+    background-color: #f6ffed;
+  }

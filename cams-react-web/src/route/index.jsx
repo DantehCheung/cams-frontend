@@ -10,6 +10,7 @@ import ManageRoom from "../pages/manage/manageRoom";
 import ManageItem from "../pages/manage/manageItem";
 import Borrow from "../pages/br/borrow";
 import Return from "../pages/br/return";
+import Check from "../pages/br/check";
 import React from "react";
 import Login from "../pages/login";
 import UserInfo from "../pages/user/UserInfo.jsx";
@@ -51,6 +52,14 @@ const routes = [
                 <Return />
               </ProtectedRoute>
             ),
+          },
+          {
+            path: "check",
+            element: (
+              <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.CHECK}>
+                <Check />
+              </ProtectedRoute>
+            )
           }
         ],
       },

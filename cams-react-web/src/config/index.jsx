@@ -22,6 +22,12 @@ export default [
         name: "return",
         label: "Return",
         icon: "BarcodeOutlined",
+      },
+      {
+        path: "/br/check",
+        name: "check",
+        label: "Check",
+        icon: "BarcodeOutlined",
       }
     ],
   },
