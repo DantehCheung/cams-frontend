@@ -704,19 +704,10 @@ export const getDeviceIdByRFID = async (rfid) => {
 
      console.log('API response from getDeviceIdByRFID:', response.data);
 
-     // Check if the response has expected device data format
-     if (response.data && 
-         (response.data.deviceID !== undefined || 
-          (response.data.data && response.data.data.deviceID !== undefined))) {
-      
-      // If the data is wrapped in a data property, return that
-      if (response.data.data) {
-        return { success: true, data: response.data.data };
-      }
-      
-      // Otherwise return the direct response data which has device info
-      return { success: true, data: response.data };
-    }
+        // If there's a top-level deviceID, return it directly
+        if (response.data /*&& typeof response.data.deviceID !== 'undefined'*/) {
+          return { success: true, data: response.data };
+        }
     
     // Handle API error response
     let errorMessage = 'Unknown API error';
@@ -851,22 +842,41 @@ export const checkReturn = async (checkReturnParams) => {
 };
 
 
-export const returnItem = async (returnData) => {
+export const returnItem = async (rfidListData) => {
   try {
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+
+    const idList = []; 
+    for(const rfidtag of rfidListData.rfidList){
+      const devicedata = await getDeviceIdByRFID(rfidtag);
+      var deviceid = devicedata.data.deviceID;
+      if (!idList.includes(deviceid)) {
+        idList.push(deviceid);
+      }
+    }
+
     const response = await axiosInstance.post('br/return', {
       token: token,
-      returnList: returnData.returnList,
+      returnList: idList
     });
 
     console.log('Return item response:', response.data);
 
-    if (response.data && response.data.status === true) {
-      return { success: true, data: response.data };
+    // Now we expect the backend to return an object with returnStatus
+    // e.g. { "returnStatus": [ { "itemID": 1, "state": true }, { "itemID": 2, "state": false } ] }
+    if (response.data && Array.isArray(response.data.returnStatus)) {
+      return {
+        success: true,
+        returnedItems: response.data.returnStatus // array of { itemID, state }
+      };
     }
+
+    // Otherwise treat it as an error or unexpected format
     return { success: false, error: response.data };
   } catch (error) {
     console.error('Error returning item:', error);
     return { success: false, error: error.message || 'An unexpected error occurred' };
   }
-}
+};
+
+

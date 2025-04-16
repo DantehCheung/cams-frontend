@@ -23,6 +23,189 @@ const inBrowser = !ipcRenderer;
 
 const Check = () => {
 
+   const [checkForm] = Form.useForm();
+   const [rfidValue, setRfidValue] = useState('');
+   const [returnList, setReturnList] = useState([]);
+   const rfidOutputRef = useRef(null);
+   const containerRef = useRef(null);
+   const dispatch = useDispatch();
+   const { items } = useSelector((state) => state.return); // State get return tag get reducer
+
+  // Set a page identifier when component mounts (for RFID system)
+  useEffect(() => {
+    if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
+      window.ARSInterface.setActivePage('return');
+      console.log('Set active page to: return');
+    } else {
+      window.activeRFIDPage = 'return';
+      console.log('Set activeRFIDPage to: return using fallback');
+    }
+    // Set focus to this component so it captures RFID events
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+    // Cleanup when component unmounts
+    return () => {
+      if (window.ARSInterface && typeof window.ARSInterface.clearActivePage === 'function') {
+        window.ARSInterface.clearActivePage();
+      } else {
+        window.activeRFIDPage = null;
+      }
+    };
+  }, []);
+
+  // Handle focus events to ensure this page captures RFID events when in view
+  const handleFocus = () => {
+    console.log('Return page received focus');
+    if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
+      window.ARSInterface.setActivePage('return');
+    } else {
+      window.activeRFIDPage = 'return';
+    }
+  };
+
+
+    // Function to clear RFID data
+    const clearData = () => {
+      setRfidValue('');
+      if (window.ARSInterface && typeof window.ARSInterface.clearData === 'function') {
+        window.ARSInterface.clearData();
+        console.log('Clearing RFID data via ARSInterface');
+      }
+      if (!inBrowser && ipcRenderer) {
+        ipcRenderer.send('clearRfid');
+        console.log('Sent clearRfid command to Electron');
+      }
+      console.log('RFID data cleared');
+    };
+
+    
+      const handleAddItem = () => {
+      if (!rfidValue) {
+        notification.error({
+          message: "No RFID Detected",
+          description: "Please scan an RFID tag before adding.",
+        });
+        return;
+      }
+      // Check for duplicates
+      if (items.some(item => item.rfid === rfidValue)) {
+        notification.warning({
+          message: "Duplicate RFID",
+          description: "This RFID tag is already in the list.",
+        });
+        return;
+      }
+      // Add the RFID value to the items list
+      dispatch(returnSuccess([...items, { key: Date.now(), rfid: rfidValue }]));
+      setRfidValue(""); // Clear for next scan
+    };
+
+  //--------------------------------------------------------------------------------------------
+const handleCheck = async () => {
+  try {
+    const RFIDList = items.map((item) => item.rfid);
+    const result = await assetService.checkReturn({ rfidlist: RFIDList });
+    console.log("CheckReturn response:", result);
+    if (result && Array.isArray(result.checkedDevice) && result.checkedDevice.length > 0) {
+      notification.success({
+        message: "Checked Devices",
+        description: `Checked ${result.checkedDevice.length} device(s).`,
+      });
+      // Build a unique list of device IDs from the checkedDevice array using a for loop
+      const idList = [];
+      for (const device of result.checkedDevice) {
+        if (!idList.includes(device.deviceID)) {
+          idList.push(device.deviceID);
+        }
+      }
+      setReturnList(idList);
+      // Enable Confirm Return button once check is successful.
+    } else {
+      notification.warning({
+        message: "No Devices Checked",
+        description: "No devices were found or checked.",
+      });
+      setReturnList([]);
+    }
+  } catch (error) {
+    notification.error({
+      message: "Check Failed",
+      description: error?.message || error.toString(),
+    });
+    setReturnList([]);
+  }
+};
+
+const columns = [
+  { title: "RFID Tag", dataIndex: "rfid", key: "rfid" },
+];
+
+
+return (
+
+
+           <div className="return-container" ref={containerRef} tabIndex={0} onFocus={handleFocus}>
+                <Card title="Check Items (Scan RFID or Add Manually)">
+          
+                  <Form form={checkForm} layout="vertical">
+                    <Row gutter={[16, 16]} align="middle">
+                      <Col xs={24} sm={16}>
+                        <Form.Item name="returnItem" label="RFID Status">
+                          <div className="rfid-status-box" style={{
+                            padding: '12px 16px',
+                            border: '1px solid #d9d9d9',
+                            borderRadius: '6px',
+                            backgroundColor: rfidValue ? '#f6ffed' : '#f5f5f5',
+                            borderColor: rfidValue ? '#b7eb8f' : '#d9d9d9',
+                            height: '50px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            fontSize: '16px'
+                          }}>
+                            {rfidValue ? (
+                              <>
+                                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px', marginRight: '8px' }} />
+                                <Text strong>RFID Tag Detected: {rfidValue}</Text>
+                              </>
+                            ) : (
+                              <Text type="secondary">Waiting for RFID scan...</Text>
+                            )}
+                          </div>
+                          {/* Debug output for RFID events (optional, for development) */}
+                          <div ref={rfidOutputRef} style={{ display: 'none' }} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} sm={8} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <Button icon={<ClearOutlined />} onClick={clearData} type="default" block>
+                          Clear RFID
+                        </Button>
+                        <Button type="primary" onClick={handleAddItem} block>
+                          Add to List
+                        </Button>
+                      </Col>
+                    </Row>
+                  </Form>
+          
+                  <Table
+                    columns={columns}
+                    dataSource={items}
+                    pagination={false}
+                    style={{ marginTop: 16 }}
+                  />
+          
+          <Button
+            icon={<CheckCircleOutlined />} 
+            onClick={handleCheck}
+            style={{marginRight: 10 }}
+          >
+            Check Return
+          </Button>
+
+                </Card>
+              </div>
+);
+
 }
 
 export default Check;

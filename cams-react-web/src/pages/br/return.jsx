@@ -1,5 +1,5 @@
 import React, { useState ,useRef, useEffect} from "react";
-import { Card, Form, Input, Button, notification, Select, Row, Col, Spin, Typography, Divider, Tabs, Table, Space, DatePicker, Descriptions, Checkbox } from "antd";
+import {Alert, Card, Form, Input, Button, notification, Select, Row, Col, Spin, Typography, Divider, Tabs, Table, Space, DatePicker, Descriptions, Checkbox } from "antd";
 const { Text } = Typography;
 import "./return.css";
 import { ScanOutlined, ClearOutlined, CheckCircleOutlined, HistoryOutlined, FileSearchOutlined, BookOutlined } from '@ant-design/icons';
@@ -25,12 +25,12 @@ const inBrowser = !ipcRenderer;
 const Return = () => {
   const [returnForm] = Form.useForm();
   const [rfidValue, setRfidValue] = useState('');
-  const [isChecked, setIsChecked] = useState(false); // state to control Confirm Return button
-  const [returnList, setReturnList] = useState([]);
+  const [pendingChecked, setPendingChecked] = useState(true);
   const rfidOutputRef = useRef(null);
   const containerRef = useRef(null);
   const dispatch = useDispatch();
   const { items } = useSelector((state) => state.return); // State get return tag get reducer
+
 
   // Set a page identifier when component mounts (for RFID system)
   useEffect(() => {
@@ -77,6 +77,7 @@ const Return = () => {
       console.log('Sent clearRfid command to Electron');
     }
     console.log('RFID data cleared');
+
   };
 
   const handleAddItem = () => {
@@ -97,70 +98,50 @@ const Return = () => {
   }
   // Add the RFID value to the items list
   dispatch(returnSuccess([...items, { key: Date.now(), rfid: rfidValue }]));
+  setPendingChecked(false);
   setRfidValue(""); // Clear for next scan
 };
 
-const handleCheck = async () => {
-  try {
-    const RFIDList = items.map((item) => item.rfid);
-    const result = await assetService.checkReturn({ rfidlist: RFIDList });
-    console.log("CheckReturn response:", result);
-    if (result && Array.isArray(result.checkedDevice) && result.checkedDevice.length > 0) {
-      notification.success({
-        message: "Checked Devices",
-        description: `Checked ${result.checkedDevice.length} device(s).`,
-      });
-      // Build a unique list of device IDs from the checkedDevice array using a for loop
-      const idList = [];
-      for (const device of result.checkedDevice) {
-        if (!idList.includes(device.deviceID)) {
-          idList.push(device.deviceID);
-        }
-      }
-      setReturnList(idList);
-      // Enable Confirm Return button once check is successful.
-      setIsChecked(true);
-    } else {
-      notification.warning({
-        message: "No Devices Checked",
-        description: "No devices were found or checked.",
-      });
-      setIsChecked(false);
-      setReturnList([]);
-    }
-  } catch (error) {
-    notification.error({
-      message: "Check Failed",
-      description: error?.message || error.toString(),
-    });
-    setIsChecked(false);
-    setReturnList([]);
-  }
-};
- 
 const handleReturn = async () => {
   try {
- 
-    const payload = {
-      returnList: returnList, // This list is built in handleCheck
-    };
+    const currentRFIDList = items.map(item => item.rfid);  // currentRFIDList = ["ABC123", "DEF456", "GHI789"]
+    const result = await assetService.returnItem({ rfidList: currentRFIDList });
 
-    // Call the return API method (adjust assetService.returnItem as needed)
-    const response = await assetService.returnItem(payload);
-    // Assume return success - clear the table and reset states
+    let greenlight = false;
+    const failedItems = [];
+
+    for(const item of result.returnedItems){
+      if(item.state === true){
+        greenlight = true;
+      }else{
+        greenlight = false;
+        failedItems.push(item.itemID);
+      }
+    }
+
+    if (result.returnedItems.length > 0 && greenlight === true) {
+      notification.success({
+        message: "Return Success",
+        description: `Returned ${result.returnedItems.length} device(s).
+        Including deviceID ${result.returnedItems.map(item => item.itemID).join(', ')}`,
+      });
+    }else{
+      notification.error({
+        message: "No Items Returned",
+        description: "Your RFID not exist or you have not borrow",
+      })
+
+    }
+
     dispatch(returnSuccess([]));
-    setIsChecked(false);
-    setReturnList([]);
-    notification.success({
-      message: "Return Completed",
-      description: "Item(s) returned successfully. Thank you!",
-    });
   } catch (err) {
     dispatch(returnFailure(err.toString()));
     notification.error({
       message: "Return Failed",
       description: err.toString(),
     });
+  }finally{
+    setPendingChecked(true);
   }
 };
 
@@ -224,12 +205,14 @@ const handleReturn = async () => {
 
 
   return (
+    
     <div className="return-container" ref={containerRef} tabIndex={0} onFocus={handleFocus}>
       <Card title="Return Items (Scan RFID or Add Manually)">
 
         <Form form={returnForm} layout="vertical">
           <Row gutter={[16, 16]} align="middle">
             <Col xs={24} sm={16}>
+            
               <Form.Item name="returnItem" label="RFID Status">
                 <div className="rfid-status-box" style={{
                   padding: '12px 16px',
@@ -272,19 +255,15 @@ const handleReturn = async () => {
           pagination={false}
           style={{ marginTop: 16 }}
         />
-        <Button
-          icon={<CheckCircleOutlined />} 
-          onClick={handleCheck}
-          style={{marginRight: 10 }}
-        >
-          Check Return
-        </Button>
+
+
+
         <Button
           type="primary"
           icon={<ScanOutlined />}
           onClick={handleReturn}
           style={{ marginTop: 16 }}
-          disabled={!isChecked} // Disabled until check is successful
+          disabled={pendingChecked}
         >
           Confirm Return
         </Button>

@@ -1,0 +1,15 @@
+.check-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .check-container .ant-card {
+    width: 100%;
+  }
+  
+  .check-container .ant-form-inline .ant-form-item {
+    margin-right: 16px;
+    margin-bottom: 16px;
+  }
+
