@@ -22,11 +22,13 @@ import {
   Checkbox,
   Radio
 } from "antd";
+const { Text } = Typography;
 import { 
   UploadOutlined, 
   PlusOutlined, 
   SearchOutlined, 
   SyncOutlined,
+  CheckCircleOutlined,
   InboxOutlined,
   DeleteOutlined, 
   FilePdfOutlined, 
@@ -35,20 +37,22 @@ import {
   DownloadOutlined,
   FilterOutlined
 } from "@ant-design/icons";
-import { useRfid } from "../../context/RfidContext";
 import { assetService } from "../../api";
 import axiosInstance from "../../api/axios";
 
 // Initialize Electron IPC Renderer if not in browser environment
-let inBrowser = true;
-let ipcRenderer = null;
+// Get Electron IPC 
+let electron;
+
 try {
-  ipcRenderer = window.require("electron").ipcRenderer;
-  inBrowser = false;
-} catch(e) {
-  inBrowser = true;
+  electron = window.require && window.require('electron');
+} catch (e) {
+  console.log("Running in browser environment, not Electron.");
 }
 
+const ipcRenderer = electron?.ipcRenderer;
+const inBrowser = !ipcRenderer;
+//-----------------------------------------------------------------------
 const { Title } = Typography;
 
 
@@ -81,6 +85,8 @@ const ManageItem = () => {
   const [rfidModalVisible, setRfidModalVisible] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [selectedPartId, setSelectedPartId] = useState(null);
+  const rfidOutputRef = useRef(null);
+  const containerRef = useRef(null);
   const [rfidValue, setRfidValue] = useState('');
   
   // States for Edit Part modal
@@ -92,26 +98,8 @@ const ManageItem = () => {
   const [editPartDeviceStatus, setEditPartDeviceStatus] = useState('');
   const [editPartForm] = Form.useForm();
   const [availableRfidDevices, setAvailableRfidDevices] = useState([]);
-  const rfidOutputRef = useRef(null);
-    
-  // Get global RFID context
-  const {
-    lastScannedTag,
-    connectReader,
-    startScanning,
-    stopScanning,
-    disconnectReader,
-    clearData,
-    setLogReference,
-    inBrowser
-  } = useRfid();
-  // Handle RFID tag scanning
-  useEffect(() => {
-    if (lastScannedTag && rfidModalVisible) {
-      // Update the RFID value when a tag is scanned and the modal is open
-      setRfidValue(lastScannedTag.TID || '');
-    }
-  }, [lastScannedTag, rfidModalVisible]);
+
+
   // State for filtering items by state
   const [stateFilters, setStateFilters] = useState({
     available: true,    // A - Available
@@ -322,36 +310,109 @@ const ManageItem = () => {
     }
   };
   
-  // Function to show the RFID assignment modal
-  const showRfidAssignModal = (deviceId, partId) => {
-    setSelectedDeviceId(deviceId);
-    setSelectedPartId(partId);
-    setRfidValue(''); // Clear any previous RFID value
-    setRfidModalVisible(true);
-  };
+ // rfid separate data part
+  
+  useEffect(() => {
 
-  
-  // Track if RFID has been initialized for this modal session
-  const [rfidInitialized, setRfidInitialized] = useState(false);
-  
-  // Simple reference for RFID output logging
-  useEffect(() => {
-    if (rfidModalVisible && rfidOutputRef.current) {
-      setLogReference(rfidOutputRef.current);
+    if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
+      window.ARSInterface.setActivePage('manageItem');
+      console.log('Set active page to: manageItem');
+    } else {
+      window.activeRFIDPage = 'manageItem';
+      console.log('Set activeRFIDPage to: manageItem using fallback');
     }
-    
-    // No automatic connection or scanning - user will control this manually
+    // Set focus to this component so it captures RFID events
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+    // Cleanup when component unmounts
     return () => {
-      // No automatic cleanup required
+      if (window.ARSInterface && typeof window.ARSInterface.clearActivePage === 'function') {
+        window.ARSInterface.clearActivePage();
+      } else {
+        window.activeRFIDPage = null;
+      }
     };
-  }, [rfidModalVisible, setLogReference]);
+  }, []);
+
+    // Handle focus events to ensure this page captures RFID events when in view
+    const handleFocus = () => {
+      console.log('Check page received focus');
+      if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
+        window.ARSInterface.setActivePage('check');
+      } else {
+        window.activeRFIDPage = 'check';
+      }
+    };
   
-  // Update RFID value when tag is scanned
-  useEffect(() => {
-    if (lastScannedTag && lastScannedTag.TID) {
-      setRfidValue(lastScannedTag.TID);
-    }
-  }, [lastScannedTag]);
+      // Listen for RFID data
+        useEffect(() => {
+          if (inBrowser) {
+            // Browser environment - use custom event
+            const handleBrowserRfidEvent = (event) => {
+              // Log the event to our hidden div for debugging
+              if (rfidOutputRef.current) {
+                rfidOutputRef.current.innerHTML += `RFID browser event: ${JSON.stringify(event.detail)}<br/>`;
+              }
+      
+              // Example format: {tid: "E280110640000252B96AAD01"}
+              if (event.detail && event.detail.tid) {
+                console.log('Browser RFID event received:', event.detail.tid);
+                setRfidValue(event.detail.tid);
+              }
+            };
+      
+            // Listen for browser custom event
+            window.addEventListener('rfidData', handleBrowserRfidEvent);
+      
+            // We'll add the test buttons in the JSX instead for better control
+      
+            return () => {
+              window.removeEventListener('rfidData', handleBrowserRfidEvent);
+            };
+          } else {
+            // Desktop environment - use Electron IPC
+            const handleElectronRfidTag = (event, message) => {
+              try {
+                if (rfidOutputRef.current) {
+                  rfidOutputRef.current.innerHTML += `RFID event (Electron): ${message}<br/>`;
+                }
+      
+                const tagObj = JSON.parse(message);
+                if (tagObj && tagObj.TID) {
+                  console.log('Electron RFID TID received:', tagObj.TID);
+                  setRfidValue(tagObj.TID);
+                }
+              } catch (error) {
+                console.error('Error parsing RFID tag data:', error);
+              }
+            };
+      
+            // Setup Electron IPC listeners
+            ipcRenderer.on('newScannedTag', handleElectronRfidTag);
+      
+            return () => {
+              ipcRenderer.removeListener('newScannedTag', handleElectronRfidTag);
+            };
+          }
+        }, [inBrowser]);
+  
+    // Function to clear RFID data
+    const clearData = () => {
+      setRfidValue('');
+      if (window.ARSInterface && typeof window.ARSInterface.clearData === 'function') {
+        window.ARSInterface.clearData();
+        console.log('Clearing RFID data via ARSInterface');
+      }
+      if (!inBrowser && ipcRenderer) {
+        ipcRenderer.send('clearRfid');
+        console.log('Sent clearRfid command to Electron');
+      }
+      console.log('RFID data cleared');
+    };
+  
+  
+
   
   // Function to handle RFID modal cancel
   const handleRfidModalCancel = () => {
@@ -818,10 +879,7 @@ const ManageItem = () => {
     setManualDeviceId('');
   };
   
-  // Show manual device ID modal
-  const showManualDeviceIdModal = () => {
-    setManualDeviceIdModalVisible(true);
-  };
+
   
   // Show Edit Part modal
   const showEditPartModal = (deviceId, partId, partName, status, deviceName = '', deviceStatus = '') => {
@@ -1196,11 +1254,6 @@ const ManageItem = () => {
     }
   };
 
-  // Normalize upload file list
-  const normFile = (e) => {
-    if (Array.isArray(e)) return e;
-    return e && e.fileList;
-  };
 
  
 
@@ -1962,6 +2015,9 @@ const ManageItem = () => {
 
       {/* RFID Assignment Modal */}
       <Modal
+       ref={containerRef} 
+       tabIndex={0} 
+       onFocus={handleFocus}
         title="Assign RFID Tag"
         open={rfidModalVisible}
         onCancel={handleRfidModalCancel}
@@ -1984,9 +2040,29 @@ const ManageItem = () => {
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item label="Device Part ID (devicePartID)" style={{ marginBottom: '8px' }}>
-                  <Input value={selectedPartId} disabled />
-                </Form.Item>
+              <Form.Item name="returnItem" label="RFID Status">
+                <div className="rfid-status-box" style={{
+                  padding: '12px 16px',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '6px',
+                  backgroundColor: rfidValue ? '#f6ffed' : '#f5f5f5',
+                  borderColor: rfidValue ? '#b7eb8f' : '#d9d9d9',
+                  height: '50px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '16px'
+                }}>
+                  {rfidValue ? (
+                    <>
+                      <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px', marginRight: '8px' }} />
+                      <Text strong>RFID Tag Detected: {rfidValue}</Text>
+                    </>
+                  ) : (
+                    <Text type="secondary">Waiting for RFID scan...</Text>
+                  )}
+                </div>
+
+              </Form.Item>
               </Col>
             </Row>
             
