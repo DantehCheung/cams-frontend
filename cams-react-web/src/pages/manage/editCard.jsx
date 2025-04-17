@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import { Form, Input, Button, Card, Typography, notification, Divider, Select, Radio } from 'antd';
-import { InboxOutlined, UploadOutlined, SwapOutlined } from '@ant-design/icons';
+import { InboxOutlined, UploadOutlined, SwapOutlined,ClearOutlined } from '@ant-design/icons';
 import { assetService } from '../../api';
 const { Title, Paragraph, Text } = Typography;
 
@@ -13,10 +13,6 @@ const EditCard = () => {
         { label: 'Destroyed', value: 'D' },
     ];
 
-    useEffect(() => {
-        setCardId('');
-        editForm.resetFields();
-    },[])
 
     // Update the form when cardId changes based on active field
     useEffect(() => {
@@ -153,6 +149,7 @@ const EditCard = () => {
                 
                 <Button 
                     style={{ marginLeft: '10px' }} 
+                    icon={<ClearOutlined />}
                     type="primary" 
                     danger
                     onClick={() => {

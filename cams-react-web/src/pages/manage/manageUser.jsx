@@ -4,6 +4,7 @@ import { Tabs } from "antd";
 import AddUser from "./addUser";
 import BindUserCard from "./bindUserCard"; // a new component
 import EditCard from "./editCard"
+import DeleteCard from "./deleteCard"
 import "./manageUser.css"; // Assuming you have a CSS file for styles
 
 
@@ -32,6 +33,11 @@ const ManageUsers = () => {
       key: "3",
       label: "Edit User Card",
       children: <EditCard key={`add-user-${activeKey === "3"}`} />
+    },
+    {
+      key: "4",
+      label: "Delete User Card",
+      children: <DeleteCard key={`add-user-${activeKey === "4"}`} />
     }
   ];
 

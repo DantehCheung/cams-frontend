@@ -934,7 +934,7 @@ export const editCard = async (editCardData) => {
 
     const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
 
-    console.log(editCardData)
+    //console.log(editCardData)
 
     const response = await axiosInstance.post('editusercard',{
         CardID: editCardData.cardID,
@@ -954,4 +954,31 @@ export const editCard = async (editCardData) => {
     return { success: false, error: error.message || 'An unexpected error occurred' };
   }
 
+}
+
+
+// Delete user card
+export const deleteCard = async (deleteCardID) => {
+
+  try{
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+
+    console.log("delCardid:",deleteCardID)
+    const response = await axiosInstance.post("/deleteusercard", {
+      CardID: deleteCardID,
+      token: token,
+    })
+
+    // console.log(response)
+    // console.log(response.data)
+
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }else{
+      return { success: false, error: response.data };
+    }
+
+  }catch(error){
+    return { success: false, error: error.message || 'An unexpected error occurred' };
+  }
 }

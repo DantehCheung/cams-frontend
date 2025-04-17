@@ -13,11 +13,6 @@ const AddUser = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileList, setFileList] = useState([]);
 
-  useEffect(() => {
-    setSelectedFile(null);
-    setFileList([]);
-}, [])
-
   const processExcel = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();

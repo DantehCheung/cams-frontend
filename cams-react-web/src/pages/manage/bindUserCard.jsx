@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Form, Input, Upload, Button, Card, Typography, Divider, notification} from 'antd';
-import { InboxOutlined, UploadOutlined } from '@ant-design/icons';
+import { InboxOutlined, UploadOutlined,ClearOutlined } from '@ant-design/icons';
 import { assetService } from '../../api';
 
 
@@ -11,10 +11,7 @@ const bindUserCard = () => {
     const [linkForm] = Form.useForm();
     const [cardId, setCardId] = useState('');
 
-    useEffect(() => {
-        setCardId('');
-        linkForm.resetFields();
-    }, [])
+
 
     // Add this useEffect to update the form when cardId changes
     useEffect(() => {
@@ -97,6 +94,7 @@ const bindUserCard = () => {
                     Bind
                 </Button>
                 <Button style={{ marginLeft: '10px' }}
+                    icon={<ClearOutlined />}
                     onClick={() => {
                         setCardId('');
                         linkForm.resetFields(); // This resets all form fields to initial values
