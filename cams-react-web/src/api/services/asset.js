@@ -880,3 +880,24 @@ export const returnItem = async (rfidListData) => {
 };
 
 
+// --------------------------------------------------------------------------------------------------------------
+// Add User By Excel File
+
+export const addUser = async (AddUserData) => {
+  try{
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    const response = await axiosInstance.post('/adduser',{
+      token: token,
+      userList: AddUserData.userList
+    })
+
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }else{
+      return { success: false, error: response.data };
+    }
+
+  }catch(error){
+    return { success: false, error: error.message || 'An unexpected error occurred' };
+  }
+}

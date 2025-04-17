@@ -37,9 +37,9 @@ export default [
     icon: "DatabaseOutlined",
     children: [
       {
-        path: "/manage/addUser",
-        name: "addUser",
-        label: "Add User",
+        path: "/manage/manageUser",
+        name: "manageUser",
+        label: "Manage User",
         icon: "UserAddOutlined",
       },
       {

@@ -1,7 +1,8 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import Main from "../pages/main.jsx";
 import Home from "../pages/home";
-import AddUser from "../pages/manage/addUser";
+//import AddUser from "../pages/manage/addUser";
+import ManageUser from "../pages/manage/manageUser";
 import ConnectRFID from "../pages/other/connectRFID";
 import DownloadVer from "../pages/other/downloadVer.jsx"
 import GenReport from "../pages/manage/genReport";
@@ -67,10 +68,10 @@ const routes = [
         path: "manage",
         children: [
           {
-            path: "addUser",
+            path: "manageUser",
             element: (
               <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.USER_MANAGEMENT}>
-                <AddUser />
+                <ManageUser />
               </ProtectedRoute>
             ),
           },
