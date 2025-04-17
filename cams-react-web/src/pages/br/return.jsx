@@ -34,6 +34,9 @@ const Return = () => {
 
   // Set a page identifier when component mounts (for RFID system)
   useEffect(() => {
+        dispatch(returnSuccess([])); // Clear the items in the Redux store
+        setPendingChecked(true); // Reset pending state
+
     if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
       window.ARSInterface.setActivePage('return');
       console.log('Set active page to: return');
@@ -63,6 +66,8 @@ const Return = () => {
     } else {
       window.activeRFIDPage = 'return';
     }
+    dispatch(checkSuccess([])); // Clear the items in the Redux store
+    setPendingChecked(true); // Reset pending state
   };
 
   // Function to clear RFID data
@@ -77,7 +82,8 @@ const Return = () => {
       console.log('Sent clearRfid command to Electron');
     }
     console.log('RFID data cleared');
-
+        dispatch(returnSuccess([])); // Clear the items in the Redux store
+        setPendingChecked(true); // Reset pending state
   };
 
   const handleAddItem = () => {
@@ -142,6 +148,8 @@ const Return = () => {
       });
     } finally {
       setPendingChecked(true);
+      dispatch(returnSuccess([])); // Clear the items after return
+      setRfidValue(""); // Clear RFID value after return
     }
   };
 
@@ -234,7 +242,7 @@ const Return = () => {
                     <Text type="secondary">Waiting for RFID scan...</Text>
                   )}
                 </div>
-            
+
               </Form.Item>
             </Col>
             <Col xs={24} sm={8} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

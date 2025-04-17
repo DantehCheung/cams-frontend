@@ -30,14 +30,17 @@ const Check = () => {
   const [checkForm] = Form.useForm();
   const [rfidValue, setRfidValue] = useState('');
   const [pendingChecked, setPendingChecked] = useState(true);
-  const [checkList, setCheckList] = useState([]);
   const rfidOutputRef = useRef(null);
   const containerRef = useRef(null);
   const dispatch = useDispatch();
-  const { items } = useSelector((state) => state.return); // State get return tag get reducer
+  const { items } = useSelector((state) => state.check); // State get return tag get reducer
 
   // Set a page identifier when component mounts (for RFID system)
   useEffect(() => {
+
+    dispatch(checkSuccess([])); // Clear the items in the Redux store
+    setPendingChecked(true); // Reset pending state
+
 
     if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
       window.ARSInterface.setActivePage('check');
@@ -82,6 +85,8 @@ const Check = () => {
       ipcRenderer.send('clearRfid');
       console.log('Sent clearRfid command to Electron');
     }
+    dispatch(checkSuccess([])); // Clear the items in the Redux store
+    setPendingChecked(true); // Reset pending state
     console.log('RFID data cleared');
   };
 
@@ -104,7 +109,9 @@ const Check = () => {
     }
     // Add the RFID value to the items list
     dispatch(checkSuccess([...items, { key: Date.now(), rfid: rfidValue }]));
+    setPendingChecked(false); // Reset pending state
     setRfidValue(""); // Clear for next scan
+
   };
 
   //--------------------------------------------------------------------------------------------
@@ -112,20 +119,23 @@ const Check = () => {
     try {
       const RFIDList = items.map((item) => item.rfid);
       const result = await assetService.checkReturn({ rfidlist: RFIDList });
-      console.log("CheckReturn response:", result);
+
       if (result && Array.isArray(result.checkedDevice) && result.checkedDevice.length > 0) {
+
+        let checkedDevicesIDs = [];
+        result.checkedDevice.forEach((device) => {
+          if (device.partsChecked === true) {
+            checkedDevicesIDs.push(device.deviceID);
+          }
+        })
+
         notification.success({
           message: "Checked Devices",
-          description: `Checked ${result.checkedDevice.length} device(s).`,
+          description: `Checked ${checkedDevicesIDs.length} device(s).
+        Including deviceID ${checkedDevicesIDs.join(', ')}`
         });
-        // Build a unique list of device IDs from the checkedDevice array using a for loop
-        const idList = [];
-        for (const device of result.checkedDevice) {
-          if (!idList.includes(device.deviceID)) {
-            idList.push(device.deviceID);
-          }
-        }
-        setReturnList(idList);
+
+
         // Enable Confirm Return button once check is successful.
       } else {
         notification.warning({
@@ -139,62 +149,66 @@ const Check = () => {
         message: "Check Failed",
         description: error?.message || error.toString(),
       });
-      setReturnList([]);
+
+    } finally {
+      setPendingChecked(true);
+      dispatch(checkSuccess([])); // Clear the items after checking
+      setRfidValue(''); // Clear RFID value after checking
     }
   };
 
   // Listen for RFID data
-    useEffect(() => {
-      if (inBrowser) {
-        // Browser environment - use custom event
-        const handleBrowserRfidEvent = (event) => {
-          // Log the event to our hidden div for debugging
+  useEffect(() => {
+    if (inBrowser) {
+      // Browser environment - use custom event
+      const handleBrowserRfidEvent = (event) => {
+        // Log the event to our hidden div for debugging
+        if (rfidOutputRef.current) {
+          rfidOutputRef.current.innerHTML += `RFID browser event: ${JSON.stringify(event.detail)}<br/>`;
+        }
+
+        // Example format: {tid: "E280110640000252B96AAD01"}
+        if (event.detail && event.detail.tid) {
+          console.log('Browser RFID event received:', event.detail.tid);
+          setRfidValue(event.detail.tid);
+        }
+      };
+
+      // Listen for browser custom event
+      window.addEventListener('rfidData', handleBrowserRfidEvent);
+
+      // We'll add the test buttons in the JSX instead for better control
+
+      return () => {
+        window.removeEventListener('rfidData', handleBrowserRfidEvent);
+      };
+    } else {
+      // Desktop environment - use Electron IPC
+      const handleElectronRfidTag = (event, message) => {
+        try {
           if (rfidOutputRef.current) {
-            rfidOutputRef.current.innerHTML += `RFID browser event: ${JSON.stringify(event.detail)}<br/>`;
+            rfidOutputRef.current.innerHTML += `RFID event (Electron): ${message}<br/>`;
           }
-  
-          // Example format: {tid: "E280110640000252B96AAD01"}
-          if (event.detail && event.detail.tid) {
-            console.log('Browser RFID event received:', event.detail.tid);
-            setRfidValue(event.detail.tid);
+
+          const tagObj = JSON.parse(message);
+          if (tagObj && tagObj.TID) {
+            console.log('Electron RFID TID received:', tagObj.TID);
+            setRfidValue(tagObj.TID);
           }
-        };
-  
-        // Listen for browser custom event
-        window.addEventListener('rfidData', handleBrowserRfidEvent);
-  
-        // We'll add the test buttons in the JSX instead for better control
-  
-        return () => {
-          window.removeEventListener('rfidData', handleBrowserRfidEvent);
-        };
-      } else {
-        // Desktop environment - use Electron IPC
-        const handleElectronRfidTag = (event, message) => {
-          try {
-            if (rfidOutputRef.current) {
-              rfidOutputRef.current.innerHTML += `RFID event (Electron): ${message}<br/>`;
-            }
-  
-            const tagObj = JSON.parse(message);
-            if (tagObj && tagObj.TID) {
-              console.log('Electron RFID TID received:', tagObj.TID);
-              setRfidValue(tagObj.TID);
-            }
-          } catch (error) {
-            console.error('Error parsing RFID tag data:', error);
-          }
-        };
-  
-        // Setup Electron IPC listeners
-        ipcRenderer.on('newScannedTag', handleElectronRfidTag);
-  
-        return () => {
-          ipcRenderer.removeListener('newScannedTag', handleElectronRfidTag);
-        };
-      }
-    }, [inBrowser]);
-  
+        } catch (error) {
+          console.error('Error parsing RFID tag data:', error);
+        }
+      };
+
+      // Setup Electron IPC listeners
+      ipcRenderer.on('newScannedTag', handleElectronRfidTag);
+
+      return () => {
+        ipcRenderer.removeListener('newScannedTag', handleElectronRfidTag);
+      };
+    }
+  }, [inBrowser]);
+
 
 
 
