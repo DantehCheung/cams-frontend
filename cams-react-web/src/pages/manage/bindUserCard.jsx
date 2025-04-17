@@ -53,6 +53,14 @@ const bindUserCard = () => {
 
         const params = linkForm.getFieldsValue();
 
+                if (!params.targetCNA || !params.targetSID || params.targetSID.length !== 10 || params.targetCNA.length !== 9) {
+                    notification.error({
+                        message: 'Invalid Card ID or CNA',
+                        description: 'Please ensure the Card ID is exactly 10 digits and CNA is 9 digits.',
+                    });
+                    return;
+                }
+
         const result = await assetService.bindUserCard(params.targetCNA, params.targetSID);
 
         if(result.data.status === true){

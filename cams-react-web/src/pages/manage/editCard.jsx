@@ -59,6 +59,14 @@ const EditCard = () => {
         params.cardID = formValues.cardID;
         params.newCardID = formValues.newCardID;
         params.targetState = formValues.targetState;
+
+        if (!params.cardID || params.cardID.length !== 10) {
+            notification.error({
+                message: 'Invalid Card ID',
+                description: 'Please ensure the Card ID is exactly 10 digits.',
+            });
+            return;
+        }
         
         //console.log(params)
 

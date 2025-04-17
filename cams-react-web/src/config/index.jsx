@@ -51,19 +51,19 @@ export default [
       {
         path:"/manage/manageCampus",
         name:"manageCampus",
-        label:"Campus",
+        label:"Manage Campus",
         icon:"ApartmentOutlined"
       },
       {
         path:"/manage/manageRoom",
         name:"manageRoom",
-        label:"Room",
+        label:"Manage Room",
         icon:"ApartmentOutlined"
       },
       {
         path:"/manage/manageItem",
         name:"manageItem",
-        label:"Item",
+        label:"Manage Item",
         icon:"ApartmentOutlined"
       }
     ],
