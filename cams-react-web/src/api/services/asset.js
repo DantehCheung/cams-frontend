@@ -982,3 +982,27 @@ export const deleteCard = async (deleteCardID) => {
     return { success: false, error: error.message || 'An unexpected error occurred' };
   }
 }
+
+// Change password
+export const changePassword = async (passwordData) => {
+
+  try{
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+
+    const response = await axiosInstance.post("/changepw",{
+      token:token,
+      oldPassword: passwordData.oldPassword,
+      newPassword: passwordData.newPassword
+    })
+
+
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }else{
+      return { success: false, error: response.data };
+    }
+
+  }catch(error){
+    return { success: false, error: error.message || 'An unexpected error occurred' };
+  }
+}

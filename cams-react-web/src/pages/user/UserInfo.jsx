@@ -1,136 +1,128 @@
 import React, { useState } from 'react';
 import { PageContainer, ProCard, ProField } from '@ant-design/pro-components';
-import { Avatar, Descriptions, Space, Radio, Switch, Button, Upload, message } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { Avatar, Descriptions, Space, Radio, Switch, Button, Upload, message, Card, Divider, Form, Input, notification, Typography } from 'antd';
+import { UploadOutlined, LockOutlined, KeyOutlined } from '@ant-design/icons';
+import { assetService } from '../../api';
+
+const { Title, Paragraph, Text } = Typography;
 
 const UserInfo = () => {
-  const [mode, setMode] = useState('read'); // 'read' or 'edit'
-  const [plain, setPlain] = useState(false);
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
-  // Example user state.
-  const [user, setUser] = useState({
-    name: 'Ken Lau',
-    email: 'kenlau@example.com',
-    department: 'IT',
-    role: 'Admin',
-    photo: 'https://via.placeholder.com/150',
-  });
-
-  // Update user field value.
-  const handleFieldChange = (field, value) => {
-    setUser({ ...user, [field]: value });
-  };
-
-  // Custom upload function: read file as base64 and update photo.
-  const customUpload = async ({ file, onSuccess, onError }) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      handleFieldChange('photo', reader.result);
-      onSuccess("ok");
-      message.success(`${file.name} uploaded successfully.`);
-    };
-    reader.onerror = (error) => {
-      onError(error);
-      message.error(`${file.name} upload failed.`);
-    };
+  const handleChangePassword = async () => {
+    try {
+      setLoading(true);
+      
+      // Validate form fields
+      const values = await form.validateFields();
+      
+      // Check if new passwords match
+      if (values.newPassword !== values.confirmPassword) {
+        notification.error({
+          message: 'Password Error',
+          description: 'New passwords do not match.',
+        });
+        return;
+      }
+      
+      // Send request to API
+      const result = await assetService.changePassword(
+       values
+      );
+      
+      if (result.data && result.data.status === true) {
+        notification.success({
+          message: 'Password Changed',
+          description: 'Your password has been successfully updated.',
+        });
+        form.resetFields();
+      } else {
+        notification.error({
+          message: 'Change Failed',
+          description: result.data?.message || 'Failed to change password. Please try again.',
+        });
+      }
+    } catch (error) {
+      console.error("Password change error:", error);
+      notification.error({
+        message: 'Error',
+        description: 'An error occurred while changing your password.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <PageContainer
-      title="User Center"
-      content="Manage your personal settings and account details."
-    >
-      <Space style={{ marginBottom: 16 }}>
-        <Radio.Group onChange={(e) => setMode(e.target.value)} value={mode}>
-          <Radio value="read">Read</Radio>
-          <Radio value="edit">Edit</Radio>
-        </Radio.Group>
-        Lightning Mode
-        <Switch checked={plain} onChange={(checked) => setPlain(checked)} />
-      </Space>
-
-      <ProCard title="Profile Details" bordered headerBordered style={{ marginBottom: 16 }}>
-        {/* Avatar Section */}
-        {mode === 'edit' ? (
-          <Space direction="vertical">
-            <Avatar size={64} src={user.photo || undefined} >
-              {user.name.charAt(0)}
-            </Avatar>
-            <Upload customRequest={customUpload} showUploadList={false} >
-              <Button style={{ margin: "20px" }} icon={<UploadOutlined />}>Change Avatar</Button>
-            </Upload>
-          </Space>
-        ) : (
-          <Avatar size={64} style={{ marginBottom: 16 }} src={user.photo || undefined}>
-            {user.name.charAt(0)}
-          </Avatar>
-        )}
-
-        <Descriptions column={1}>
-          <Descriptions.Item label="Name">
-            <ProField
-             placeholder="Please Enter Your Name"
-              text={user.name}
-              mode={mode}
-              fieldProps={{
-                onChange: (e) => handleFieldChange('name', e.target.value),
-                value: user.name,
-              }}
-              valueType="text"
-              plain={plain}
-            />
-          </Descriptions.Item>
-          <Descriptions.Item label="Email">
-            <ProField
-            placeholder="Please Enter Your Email"
-              text={user.email}
-              mode={mode}
-              fieldProps={{
-                onChange: (e) => handleFieldChange('email', e.target.value),
-                value: user.email,
-              }}
-              valueType="text"
-              plain={plain}
-            />
-          </Descriptions.Item>
-          <Descriptions.Item label="Department">
-            <ProField
-            placeholder="Please Enter Your Department"
-              text={user.department}
-              mode={mode}
-              fieldProps={{
-                onChange: (e) => handleFieldChange('department', e.target.value),
-                value: user.department,
-              }}
-              valueType="text"
-              plain={plain}
-            />
-          </Descriptions.Item>
-          <Descriptions.Item label="Password">
-            <ProField
-            placeholder="Please Enter Your Password"
-              text={user.password}
-              mode={mode}
-              fieldProps={{
-                onChange: (e) => handleFieldChange('password', e.target.value),
-                value: user.password,
-              }}
-              valueType="password"
-              plain={plain}
-            />
-          </Descriptions.Item>
-          <Descriptions.Item label="Role">
-            Admin
-          </Descriptions.Item>
-        </Descriptions>
-        {mode === 'edit' && (
-          <Button style={{ marginTop: 16 }} type="primary" onClick={() => console.log('Save user:', user)}>
-            Save Changes
+    <Card>
+      <Title level={2}>Change Your Password</Title>
+      <Paragraph>Fill in the form below to change your password</Paragraph>
+      <Divider />
+      
+      <Form
+        form={form}
+        layout="vertical"
+        requiredMark={true}
+      >
+        <Form.Item
+          name="oldPassword"
+          label="Current Password"
+          rules={[{ required: true, message: 'Please enter your current password' }]}
+        >
+          <Input.Password 
+            prefix={<LockOutlined />} 
+            placeholder="Enter your current password" 
+          />
+        </Form.Item>
+        
+        <Form.Item
+          name="newPassword"
+          label="New Password"
+          rules={[
+            { required: true, message: 'Please enter your new password' },
+            { min: 8, message: 'Password must be at least 8 characters long' }
+          ]}
+        >
+          <Input.Password 
+            prefix={<KeyOutlined />} 
+            placeholder="Enter your new password" 
+          />
+        </Form.Item>
+        
+        <Form.Item
+          name="confirmPassword"
+          label="Confirm New Password"
+          dependencies={['newPassword']}
+          rules={[
+            { required: true, message: 'Please confirm your new password' },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue('newPassword') === value) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(new Error('The two passwords do not match'));
+              },
+            }),
+          ]}
+        >
+          <Input.Password 
+            prefix={<KeyOutlined />} 
+            placeholder="Confirm your new password" 
+          />
+        </Form.Item>
+        
+        <Form.Item>
+          <Button 
+            type="primary" 
+            onClick={handleChangePassword} 
+            loading={loading}
+          >
+            Change Password
           </Button>
-        )}
-      </ProCard>
-    </PageContainer>
+        </Form.Item>
+      </Form>
+    </Card>
   );
 };
 

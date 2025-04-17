@@ -20,7 +20,7 @@ const CommonHeader = ({ collapsed }) => {
 
 
   const items = [
-    { key: "userInfo", label: "User Center" },
+    { key: "userInfo", label: "Change Password" },
     { key: "login", label: "Logout" },
   ];
 
