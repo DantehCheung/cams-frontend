@@ -66,7 +66,7 @@ const Return = () => {
     } else {
       window.activeRFIDPage = 'return';
     }
-    dispatch(checkSuccess([])); // Clear the items in the Redux store
+    dispatch(returnSuccess([])); // Clear the items in the Redux store
     setPendingChecked(true); // Reset pending state
   };
 

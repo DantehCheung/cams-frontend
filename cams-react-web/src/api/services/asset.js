@@ -901,3 +901,57 @@ export const addUser = async (AddUserData) => {
     return { success: false, error: error.message || 'An unexpected error occurred' };
   }
 }
+
+// Bind card with sid
+export const bindUserCard = async (targetCNA, targetSID) => {
+
+  try{
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    const response = await axiosInstance.post('/addusercard',{
+      CardID: targetSID,
+      CNA: targetCNA,
+      token: token,
+    })
+
+
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }else{
+      return { success: false, error: response.data };
+    }
+
+  }catch(error){
+    return { success: false, error: error.message || 'An unexpected error occurred' };
+  }
+
+
+}
+
+// Edit user card
+export const editCard = async (editCardData) => {
+
+  try{
+
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+
+    console.log(editCardData)
+
+    const response = await axiosInstance.post('editusercard',{
+        CardID: editCardData.cardID,
+        newCardID: editCardData.newCardID,
+        state: editCardData.targetState,
+        token: token,
+    })
+    
+
+    if (response.data && response.data.status === true) {
+      return { success: true, data: response.data };
+    }else{
+      return { success: false, error: response.data };
+    }
+
+  }catch(error){
+    return { success: false, error: error.message || 'An unexpected error occurred' };
+  }
+
+}
