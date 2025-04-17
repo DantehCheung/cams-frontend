@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { Upload, Button, Card, Typography, Divider, notification ,Row,Col, Space} from "antd";
 import { InboxOutlined, UploadOutlined ,DownloadOutlined  } from "@ant-design/icons";
 import * as XLSX from 'xlsx';
@@ -12,6 +12,11 @@ const { Dragger } = Upload;
 const AddUser = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileList, setFileList] = useState([]);
+
+  useEffect(() => {
+    setSelectedFile(null);
+    setFileList([]);
+}, [])
 
   const processExcel = (file) => {
     return new Promise((resolve, reject) => {

@@ -13,6 +13,11 @@ const EditCard = () => {
         { label: 'Destroyed', value: 'D' },
     ];
 
+    useEffect(() => {
+        setCardId('');
+        editForm.resetFields();
+    },[])
+
     // Update the form when cardId changes based on active field
     useEffect(() => {
         if (cardId && cardId.length === 10) {
@@ -31,6 +36,7 @@ const EditCard = () => {
     }, [cardId, editForm, activeField]);
     
     useEffect(() => {
+
         // Function to handle keydown events
         const handleKeyDown = (event) => {
             // If it's a digit, add it to the cardId state

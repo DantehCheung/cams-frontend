@@ -11,6 +11,11 @@ const bindUserCard = () => {
     const [linkForm] = Form.useForm();
     const [cardId, setCardId] = useState('');
 
+    useEffect(() => {
+        setCardId('');
+        linkForm.resetFields();
+    }, [])
+
     // Add this useEffect to update the form when cardId changes
     useEffect(() => {
         if (cardId && cardId.length === 10) {
