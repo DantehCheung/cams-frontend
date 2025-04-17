@@ -5,7 +5,8 @@ import Home from "../pages/home";
 import ManageUser from "../pages/manage/manageUser";
 import ConnectRFID from "../pages/other/connectRFID";
 import DownloadVer from "../pages/other/downloadVer.jsx"
-import GenReport from "../pages/manage/genReport";
+//import GenReport from "../pages/manage/genReport";
+import ManageReport from "../pages/manage/manageReport";
 import ManageCampus from "../pages/manage/manageCampus";
 import ManageRoom from "../pages/manage/manageRoom";
 import ManageItem from "../pages/manage/manageItem";
@@ -76,10 +77,10 @@ const routes = [
             ),
           },
           {
-            path: "genReport",
+            path: "manageReport",
             element: (
               <ProtectedRoute requiredLevel={ACCESS_LEVELS.TEACHER} requiredPageBit={PAGE_PERMISSIONS.REPORT}>
-                <GenReport />
+                <ManageReport />
               </ProtectedRoute>
             ),
           },
@@ -125,14 +126,6 @@ const routes = [
             element: (
               <ProtectedRoute requiredLevel={ACCESS_LEVELS.GUEST} requiredPageBit={0}>
                 <DownloadVer />
-              </ProtectedRoute>
-            ),
-          },
-          {
-            path:"rfidTest",
-            element: (
-              <ProtectedRoute requiredLevel={ACCESS_LEVELS.GUEST} requiredPageBit={PAGE_PERMISSIONS.RFID}>
-                {/* Component for RFID test page */}
               </ProtectedRoute>
             ),
           }

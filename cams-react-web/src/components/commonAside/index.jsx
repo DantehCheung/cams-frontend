@@ -34,7 +34,7 @@ const routePermissionMap = {
 
   // Manage
   "/manage/manageUser": PAGE_PERMISSIONS.USER_MANAGEMENT,
-  "/manage/genReport": PAGE_PERMISSIONS.REPORT,
+  "/manage/manageReport": PAGE_PERMISSIONS.REPORT,
   "/manage/manageCampus": PAGE_PERMISSIONS.CAMPUS_MANAGEMENT,
   "/manage/manageRoom": PAGE_PERMISSIONS.ROOM_MANAGEMENT,
   "/manage/manageItem": PAGE_PERMISSIONS.ITEM_MANAGEMENT,

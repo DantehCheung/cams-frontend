@@ -43,9 +43,9 @@ export default [
         icon: "UserAddOutlined",
       },
       {
-        path: "/manage/genReport",
-        name: "genReport",
-        label: "Report",
+        path: "/manage/manageReport",
+        name: "manageReport",
+        label: "Manage Report",
         icon: "FileTextOutlined",
       },
       {
