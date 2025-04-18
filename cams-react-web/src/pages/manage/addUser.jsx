@@ -1,17 +1,121 @@
 
-import React, { useState,useEffect } from "react";
-import { Upload, Button, Card, Typography, Divider, notification ,Row,Col, Space} from "antd";
-import { InboxOutlined, UploadOutlined ,DownloadOutlined  } from "@ant-design/icons";
-import * as XLSX from 'xlsx';
+import React, { useState, useEffect } from "react";
+import { Upload, Button, Card, Typography, Divider, notification, Row, Col, Space } from "antd";
+import { InboxOutlined, UploadOutlined, DownloadOutlined } from "@ant-design/icons";
+import * as XLSX from 'xlsx-js-style';
 import { assetService } from "../../api";
 
 
-const { Title, Paragraph,Text } = Typography;
+const { Title, Paragraph, Text } = Typography;
 const { Dragger } = Upload;
 
 const AddUser = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileList, setFileList] = useState([]);
+
+
+
+
+  const generateTemplate = () => {
+
+
+
+    // Create template workbook
+    const wb = XLSX.utils.book_new();
+    const templateData = [{
+      CNA: "",
+      emailDomain: "",
+      password: "",
+      accessLevel: "",
+      accessPage: "",
+      firstName: "",
+      lastName: "",
+      contentNo: "",
+      campusID: ""
+    }];
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(templateData);
+
+
+    // Add styling
+    const HEADER_BG_COLOR = 'FF4472C4';
+    const HEADER_FONT_COLOR = 'FFFFFFFF';
+
+    // Get header range (first row)
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const headerRow = range.s.r; // Should be 0 for first row
+
+    // Style headers
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: headerRow, c: col });
+      if (ws[cellAddress]) {
+        ws[cellAddress].s = {
+          font: {
+            name: 'Arial',
+            sz: 12,
+            bold: true,
+            color: { rgb: HEADER_FONT_COLOR }
+          },
+          fill: {
+            patternType: "solid",
+            fgColor: { rgb: HEADER_BG_COLOR }
+          },
+          alignment: {
+            vertical: "center",
+            horizontal: "center"
+          }
+        };
+      }
+    }
+
+    // Style data rows
+    const dataRange = XLSX.utils.decode_range(ws['!ref']);
+    for (let row = dataRange.s.r + 1; row <= dataRange.e.r; row++) {
+      for (let col = dataRange.s.c; col <= dataRange.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+        if (ws[cellAddress]) {
+          ws[cellAddress].s = {
+            font: {
+              name: 'Arial',
+              sz: 11
+            }
+          };
+        }
+      }
+    }
+    
+    // Set column widths (adjust as needed)
+    ws['!cols'] = [
+      { wch: 15 }, // CNA
+      { wch: 20 }, // emailDomain
+      { wch: 15 }, // password
+      { wch: 15 }, // accessLevel
+      { wch: 20 }, // accessPage
+      { wch: 15 }, // firstName
+      { wch: 15 }, // lastName
+      { wch: 15 }, // contentNo
+      { wch: 15 }  // campusID
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+
+    // Convert to blob and download
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'addUserSample.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
 
   const processExcel = (file) => {
     return new Promise((resolve, reject) => {
@@ -84,6 +188,8 @@ const AddUser = () => {
   }
 
 
+
+
   const handleClearFile = () => {
     setSelectedFile(null);
     setFileList([]); // Clear the file list to remove the displayed filename
@@ -94,18 +200,24 @@ const AddUser = () => {
       <Title level={2}>Add User</Title>
       <Paragraph>Upload a Excel file to create new users.</Paragraph>
       <Paragraph>
-                <Space>
-                    <Text type="secondary">Need the right format?</Text>
-                    <a 
-                       href="/templates/addUserFormat.xlsx" 
-                        download="addUserFormat.xlsx"
-                    >
-                        <Button type="link" icon={<DownloadOutlined />} style={{ padding: 0 }}>
-                            Download Template
-                        </Button>
-                    </a>
-                </Space>
-            </Paragraph>
+        <Space>
+          <Text type="secondary">Need the right format?</Text>
+          <a
+
+          >
+            <Button type="link" icon={<DownloadOutlined />} style={{ padding: 0 }} onClick={generateTemplate}>
+              Download Template
+            </Button>
+          </a>
+        </Space>
+        <div style={{ marginTop: 24, padding: 16, backgroundColor: '#f0f5ff', borderRadius: 8 }}>
+          <Title level={5} style={{ marginBottom: 12 }}>Instructions:</Title>
+          <ol style={{ paddingLeft: 24, margin: 0 }}>
+            <li>CNA should be 9 charaters</li>
+            <li>email should be contains @ symbol</li>
+          </ol>
+        </div>
+      </Paragraph>
       <Divider />
       <Dragger
         accept=".xlsx,.xls"
