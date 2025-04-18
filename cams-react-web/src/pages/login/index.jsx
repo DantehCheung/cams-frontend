@@ -41,7 +41,7 @@ const Page = () => {
   const navigate = useNavigate();
 
   const [selectedPlatform, setSelectedPlatform] = useState('winx64');
-  const [selectedPackage, setSelectedPackage] = useState('zip');
+  const [selectedPackage, setSelectedPackage] = useState('unpacked');
 
   const { login, loginByCard } = useAuth();
 
@@ -412,7 +412,7 @@ const Page = () => {
               }else {
                 // show the package selection for other platforms
                 if (packageSelection) {
-                  packageSelection.style.display = "block";
+                  packageSelection.style.display = "";
                 }
               }
               setSelectedPlatform(value)
