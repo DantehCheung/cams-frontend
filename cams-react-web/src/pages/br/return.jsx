@@ -215,7 +215,7 @@ const Return = () => {
   return (
 
     <div className="return-container" ref={containerRef} tabIndex={0} onFocus={handleFocus}>
-      <Card title="Return Items (Scan RFID or Add Manually)">
+      <Card title="Return Items (Scan RFID)">
 
         <Form form={returnForm} layout="vertical">
           <Row gutter={[16, 16]} align="middle">

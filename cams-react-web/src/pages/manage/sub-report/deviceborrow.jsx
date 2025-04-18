@@ -12,7 +12,7 @@ const { Title, Paragraph, Text } = Typography;
 
 
 const deviceBorrowReport = () => {
-
+  
     const [reportForm] = Form.useForm();
 
     // Define Excel columns (match API keys with desired headers)
@@ -110,11 +110,11 @@ const deviceBorrowReport = () => {
 
         notification.success({
             message: 'Success',
-            description: 'Report generated successfully!',
+            description: 'Devices Report generated successfully!',
         });
 
         // Trigger download
-        saveAs(blob, "device_records.xlsx");
+        saveAs(blob, "device_borrow_records.xlsx");
 
 
     }
@@ -156,7 +156,15 @@ const deviceBorrowReport = () => {
     return (
         <Card>
             <Title level={2}>Device Borrow Report</Title>
-            <Paragraph>Fill the Target CNA, and click generate button</Paragraph>
+            <Divider/>
+            <div style={{ marginTop: 24, padding: 16, backgroundColor: '#f0f5ff', borderRadius: 8 }}>
+                <Title level={5} style={{ marginBottom: 12 }}>Instructions:</Title>
+                <ol style={{ paddingLeft: 24, margin: 0 }}>
+                    <li>1. Fill the CNA with min 9 characters first.</li>
+                    <li>2. Then, click the generate button</li>
+                    <li>3. Lastly, the result will export as a Excel file.</li>
+                </ol>
+            </div>
             <Divider />
             <Form form={reportForm} layout="vertical" style={{ marginTop: 16 }}>
                 <Form.Item label="Target CNA" name="targetCNA" rules={[{ required: true, message: 'Please input the Target CNA!', min: 8, max: 8 }]}>

@@ -216,7 +216,7 @@ const Check = () => {
 
 
     <div className="check-container" ref={containerRef} tabIndex={0} onFocus={handleFocus}>
-      <Card title="Check Items (Scan RFID or Add Manually)">
+      <Card title="Check Items (Scan RFID)">
 
         <Form form={checkForm} layout="vertical">
           <Row gutter={[16, 16]} align="middle">

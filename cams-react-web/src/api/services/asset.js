@@ -1131,6 +1131,8 @@ export const downloadElectronApp = async (platform, packageType) => {
 
 // Generate Report
 
+// Borrow Report
+
 export const generateBorrowReport = async (reportData) => {
   try {
     const token = axiosInstance.defaults.headers.common[
@@ -1154,3 +1156,66 @@ export const generateBorrowReport = async (reportData) => {
     };
   }
 };
+
+// Overdue Report
+
+export const generateOverdueReport = async (reportData) => {
+
+  try{
+
+    const token = axiosInstance.defaults.headers.common[
+      "Authorization"
+    ]?.replace("Bearer ", "");
+
+    const response = await axiosInstance.post("/report/overdue-devices",{
+      token: token,
+      campusID: reportData.campusID,
+      roomID: reportData.roomID,
+      cutoffDate: reportData.cutoffDate,
+    })
+
+    if (response.data) {
+      return { success: true, data: response.data };
+    } else {
+      return { success: false, error: response.data };
+    }
+
+
+  }catch(error){
+    return {
+      success: false,
+      error: error.message || "An unexpected error occurred",
+    };
+  }
+
+}
+
+// Device Status Report
+
+export const generateDeviceStatusReport = async () => {
+
+  try{
+     
+    const token = axiosInstance.defaults.headers.common[
+      "Authorization"
+    ]?.replace("Bearer ", "");
+
+    const response = await axiosInstance.post("/report/device-status-report",{
+      token: token
+    })
+
+    if (response.data) {
+      return { success: true, data: response.data };
+    } else {
+      return { success: false, error: response.data };
+    }
+
+  }catch(error){
+
+    return {
+      success: false,
+      error: error.message || "An unexpected error occurred",
+    };
+
+  }
+}
