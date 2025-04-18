@@ -1083,11 +1083,11 @@ export const downloadElectronApp = async (platform, packageType) => {
     }
     const response =
       platform === "android"
-        ? await axiosInstance.get(`/api/files/app/download/android`, {
+        ? await axiosInstance.get(`/api/files/app/download/android?auto=true`, {
             responseType: "blob", // Important for binary file downloads
           })
         : await axiosInstance.get(
-            `/files/app/download/${platform}/${packageType}`,
+            `/files/app/download/${platform}/${packageType}?auto=true`,
             {
               responseType: "blob", // Important for binary file downloads
             }
@@ -1099,7 +1099,7 @@ export const downloadElectronApp = async (platform, packageType) => {
     link.href = blobUrl;
 
     // Set a meaningful filename based on the selected options
-    link.setAttribute("download", `CAMS-${platform}-${packageType}.zip`);
+    link.setAttribute("download", `CAMS_${platform}_${packageType}.zip`);
 
     // Trigger download
     document.body.appendChild(link);
