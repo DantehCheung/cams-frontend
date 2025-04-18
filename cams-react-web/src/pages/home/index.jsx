@@ -20,23 +20,30 @@ const Home = () => {
       default: return "Unknown";
     }
   };
-  const getAccessPageNames = (pageBitmask) => {
+  const getAccessPageNames = (pageBitmask, userLevel) => {
     if (!pageBitmask) return [];
     
     const pagePermissions = [
-      { bit: 1, name: "Home" },
-      { bit: 2, name: "Borrow" },
-      { bit: 4, name: "Return" },
-      { bit: 8, name: "User Management" },
-      { bit: 16, name: "Campus Management" },
-      { bit: 32, name: "Room Management" },
-      { bit: 64, name: "Item Management" },
-      { bit: 128, name: "Reports" },
-      { bit: 256, name: "RFID" },
-      { bit: 512, name: "User Info" }
+      { bit: 63487, name: "Home" },
+      { bit: 1540, name: "Borrow" },
+      { bit: 1540, name: "Return" },
+      {bit: 65535, name: "Check Return", minLevel: 100} , // Teacher and Admin
+      { bit: 65535, name: "User Management", minLevel: 0 },      // Admin only
+      { bit: 63487, name: "Campus Management", minLevel: 100 },   // Teacher and Admin
+      { bit: 63487, name: "Room Management", minLevel: 100 },   // Teacher and Admin
+      { bit: 63487, name: "Item Management", minLevel: 100 },   // Teacher and Admin
+      { bit: 63487, name: "Reports", minLevel: 100 },          // Teacher and Admin
+      { bit: 1540, name: "RFID Connection", minLevel: 1000 }, // All            
+      { bit: 1540, name: "Change Password" , minLevel: 1000} // All
     ];
     
-    return pagePermissions.filter(page => (pageBitmask & page.bit) === page.bit).map(page => page.name);
+    // Filter pages based on both the bitmask AND the user's access level
+    return pagePermissions
+      .filter(page => 
+        (pageBitmask & page.bit) === page.bit && // Check if bit is set in bitmask
+        (!page.minLevel || userLevel <= page.minLevel) // Check if user has required access level
+      )
+      .map(page => page.name);
   };
 
   // Column configuration
@@ -107,7 +114,7 @@ const Home = () => {
   // Get current access information from AuthContext
   const accessLevel = getAccessLevel();
   const accessPage = getAccessPage();
-  const accessPageList = getAccessPageNames(accessPage);
+  const accessPageList = getAccessPageNames(accessPage,accessLevel);
 
   return (
     <div className="home-container">
