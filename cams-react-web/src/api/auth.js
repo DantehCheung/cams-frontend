@@ -71,7 +71,7 @@ export const hasPagePermission = (pagePermission) => {
   const userPageAccess = getAccessPage();
   if (userPageAccess === null) return false;
   
-  console.log('User page access:', userPageAccess, 'Required bit:', pagePermission, 'Result:', (userPageAccess & pagePermission) !== 0);
+ //  console.log('User page access:', userPageAccess, 'Required bit:', pagePermission, 'Result:', (userPageAccess & pagePermission) !== 0);
   return (userPageAccess & pagePermission) !== 0;
 };
 
@@ -82,7 +82,7 @@ export const hasRolePermission = (requiredLevel) => {
   const userLevel = getAccessLevel();
   if (userLevel === null) return false;
   
-  console.log('User level:', userLevel, 'Required level:', requiredLevel);
+  // console.log('User level:', userLevel, 'Required level:', requiredLevel);
   // 較小的值代表更高權限
   return userLevel <= requiredLevel;
 };

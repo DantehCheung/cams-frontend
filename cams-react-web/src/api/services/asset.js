@@ -40,7 +40,7 @@ export const getCampusData = async () => {
     });
 
     // Log the response for debugging
-    console.log("API response from getCampusData:", response.data);
+    //console.log("API response from getCampusData:", response.data);
 
     if (response.data && !response.data.errorCode) {
       return response.data;
@@ -62,7 +62,7 @@ export const addCampus = async (campusName, campusShortName) => {
       token: token,
     });
 
-    console.log("API response from addCampus:", response.data);
+    //console.log("API response from addCampus:", response.data);
 
     if (response.data && !response.data.errorCode) {
       return { success: true, data: response.data };
@@ -86,7 +86,7 @@ export const editCampus = async (campusId, campusName, campusShortName) => {
       token: token,
     });
 
-    console.log("API response from editCampus:", response.data);
+   // console.log("API response from editCampus:", response.data);
 
     if (response.data && !response.data.errorCode) {
       return { success: true, data: response.data };
@@ -108,7 +108,7 @@ export const deleteCampus = async (campusId) => {
       token: token,
     });
 
-    console.log("API response from deleteCampus:", response.data);
+    //console.log("API response from deleteCampus:", response.data);
 
     if (response.data && !response.data.errorCode) {
       return { success: true, data: response.data };
@@ -132,7 +132,7 @@ export const getRoomsByCampus = async (campusId) => {
       token: token,
     });
 
-    console.log("API response from getRoomsByCampus:", response.data);
+   // console.log("API response from getRoomsByCampus:", response.data);
 
     if (response.data && !response.data.errorCode) {
       return { success: true, data: response.data };
@@ -156,7 +156,7 @@ export const addRoom = async (campusId, roomNumber, roomName) => {
       token: token,
     });
 
-    console.log("API response from addRoom:", response.data);
+    //console.log("API response from addRoom:", response.data);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -181,7 +181,7 @@ export const editRoom = async (roomId, campusId, roomNumber, roomName) => {
       token: token,
     });
 
-    console.log("API response from editRoom:", response.data);
+   // console.log("API response from editRoom:", response.data);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -203,7 +203,7 @@ export const deleteRoom = async (roomId) => {
       token: token,
     });
 
-    console.log("API response from deleteRoom:", response.data);
+   // console.log("API response from deleteRoom:", response.data);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -233,10 +233,10 @@ export const getItemsByRoom = async (roomId, stateList = []) => {
       requestData.stateList = stateList;
     }
 
-    console.log("Sending getitems request with data:", requestData);
+  //  console.log("Sending getitems request with data:", requestData);
     const response = await axiosInstance.post("getitems", requestData);
 
-    console.log("API response from getItemsByRoom:", response.data);
+   // console.log("API response from getItemsByRoom:", response.data);
 
     // Check if we have a valid response with device data
     if (response.data) {
@@ -292,8 +292,8 @@ export const addDevice = async (deviceData) => {
       "Authorization"
     ]?.replace("Bearer ", "");
 
-    console.log("Adding device with data:", deviceData);
-    console.log("Device parts from form:", deviceData.deviceParts);
+   // console.log("Adding device with data:", deviceData);
+   // console.log("Device parts from form:", deviceData.deviceParts);
 
     // Ensure deviceParts is an array
     if (!Array.isArray(deviceData.deviceParts)) {
@@ -338,9 +338,9 @@ export const addDevice = async (deviceData) => {
       deviceParts: formattedParts,
     };
 
-    console.log("Adding device with data:", payload);
+   // console.log("Adding device with data:", payload);
     const response = await axiosInstance.post("additem", payload);
-    console.log("Add device API response:", response.data);
+   // console.log("Add device API response:", response.data);
 
     // Check if we have a deviceID in the response (new format)
     if (response.data && response.data.deviceID) {
@@ -419,7 +419,7 @@ export const updateDevice = async (deviceData) => {
       token: token,
     });
 
-    console.log("Edit device response:", response.data);
+   // console.log("Edit device response:", response.data);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -477,7 +477,7 @@ export const uploadDeviceDoc = async (file, deviceId) => {
       formData,
       config
     );
-    console.log("File upload response:", response.data);
+ //   console.log("File upload response:", response.data);
 
     if (
       response.data &&
@@ -538,7 +538,7 @@ export const deleteRFID = async (rfidData) => {
   try {
     const response = await axiosInstance.post("deleterfid", rfidData);
 
-    console.log("API response from deleteRFID:", response.data);
+  //  console.log("API response from deleteRFID:", response.data);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -556,7 +556,7 @@ export const deleteRFID = async (rfidData) => {
 export const assignRFID = async (rfidData) => {
   try {
     const response = await axiosInstance.post("assignrfid", rfidData);
-    console.log("API response from addRFID:", response.data);
+ //   console.log("API response from addRFID:", response.data);
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
     }
@@ -671,7 +671,7 @@ export const updateItemPart = async (partData) => {
     // Make the API request
     const response = await axiosInstance.post("updateitempart", payload);
 
-    console.log("Update item part response:", response.data);
+  //  console.log("Update item part response:", response.data);
 
     // Return response with success flag
     return {
@@ -704,7 +704,7 @@ export const borrowItem = async (borrowData) => {
     // Make the API call
     const response = await axiosInstance.post("br/borrow", requestData);
 
-    console.log("API response from borrowItem:", response.data);
+   // console.log("API response from borrowItem:", response.data);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -745,7 +745,7 @@ export const getDeviceIdByRFID = async (rfid) => {
 
     const response = await axiosInstance.post("getitembyrfid", requestData);
 
-    console.log("API response from getDeviceIdByRFID:", response.data);
+   // console.log("API response from getDeviceIdByRFID:", response.data);
 
     // If there's a top-level deviceID, return it directly
     if (response.data /*&& typeof response.data.deviceID !== 'undefined'*/) {
@@ -789,12 +789,12 @@ export const reserveItem = async (itemId, borrowRecordDate, endDate) => {
       endDate: endDate,
     };
 
-    console.log("Sending reservation request:", requestData);
+   // console.log("Sending reservation request:", requestData);
 
     // Send the reservation request
     const response = await axiosInstance.post("br/reservation", requestData);
 
-    console.log("Reservation response:", response.data);
+  //  console.log("Reservation response:", response.data);
 
     // Check if the request was successful
     if (response.data && response.data.status === true) {
@@ -832,7 +832,7 @@ export const getBorrowRecords = async (params) => {
       returned: params.returned || false,
     };
 
-    console.log("Fetching borrow records with params:", requestData);
+  //  console.log("Fetching borrow records with params:", requestData);
 
     // Send the API request
     const response = await axiosInstance.post(
@@ -840,7 +840,7 @@ export const getBorrowRecords = async (params) => {
       requestData
     );
 
-    console.log("Borrow records response:", response.data);
+  //  console.log("Borrow records response:", response.data);
 
     // Check if the request was successful and contains borrow records
     if (response.data && response.data.borrowRecord) {
@@ -916,7 +916,7 @@ export const returnItem = async (rfidListData) => {
       returnList: idList,
     });
 
-    console.log("Return item response:", response.data);
+  //  console.log("Return item response:", response.data);
 
     // Now we expect the backend to return an object with returnStatus
     // e.g. { "returnStatus": [ { "itemID": 1, "state": true }, { "itemID": 2, "state": false } ] }
@@ -1025,7 +1025,7 @@ export const deleteCard = async (deleteCardID) => {
       "Authorization"
     ]?.replace("Bearer ", "");
 
-    console.log("delCardid:", deleteCardID);
+  //  console.log("delCardid:", deleteCardID);
     const response = await axiosInstance.post("/deleteusercard", {
       CardID: deleteCardID,
       token: token,

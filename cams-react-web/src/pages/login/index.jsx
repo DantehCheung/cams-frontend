@@ -60,7 +60,7 @@ const Page = () => {
           const newCardId = prev + event.key;
           // Auto-submit if we've reached 10 digits (common card ID length)
           if (newCardId.length === 10) {
-            console.log('Card scan complete, auto-submitting:', newCardId);
+            // console.log('Card scan complete, auto-submitting:', newCardId);
             // Use setTimeout to ensure state is updated before submission
             setTimeout(() => handleCardSubmit(newCardId), 100);
           }
@@ -70,7 +70,7 @@ const Page = () => {
 
       // Enter key signals end of card read regardless of length
       if (event.key === 'Enter' && cardId.length > 0) {
-        console.log('Card scan complete (Enter pressed), attempting login with:', cardId);
+       // console.log('Card scan complete (Enter pressed), attempting login with:', cardId);
         // Automatically submit the card ID immediately
         handleCardSubmit(cardId);
       }
@@ -97,29 +97,29 @@ const Page = () => {
   // Function to handle card login submission
   const handleCardSubmit = async (id) => {
     try {
-      console.log('Attempting login with card ID:', id);
+     // console.log('Attempting login with card ID:', id);
 
       // Use the loginByCard method from AuthContext
       const result = await loginByCard(id);
 
       if (result.success) {
-        console.log('Card login successful');
+       // console.log('Card login successful');
         message.success('Login successful!');
 
         // Use the redirectPath from the login result
         const redirectTo = result.redirectPath || '/home';
-        console.log(`Redirecting to: ${redirectTo}`);
+       //console.log(`Redirecting to: ${redirectTo}`);
         navigate(redirectTo);
       } else {
         // Handle error from login attempt
-        console.log('Card login failed:', result.error);
-        const errorMessage = result.error?.description || 'Card login failed - Invalid card';
+       // console.log('Card login failed:', result.error);
+        const errorMessage = 'Card login failed - Invalid card';
         message.error(errorMessage);
         // Reset card ID for another attempt
         setCardId('');
       }
     } catch (error) {
-      console.error('Card login error:', error);
+     console.error('Card login error:', error);
       message.error('An error occurred during card login. Please try again.');
       setCardId('');
     }
@@ -127,7 +127,7 @@ const Page = () => {
 
   const handleSubmit = async (values) => {
     try {
-      console.log('Attempting login with credentials:', values);
+      //console.log('Attempting login with credentials:', values);
 
       // Use secure AuthContext login method instead of directly calling API
       const result = await login({
@@ -136,16 +136,16 @@ const Page = () => {
       });
 
       if (result.success) {
-        console.log('Login successful');
+       // console.log('Login successful');
         message.success('Login successful!');
 
         // Use the redirectPath from the login result (students go to borrow page, others to home)
         const redirectTo = result.redirectPath || '/home';
-        console.log(`Redirecting to: ${redirectTo}`);
+        //console.log(`Redirecting to: ${redirectTo}`);
         navigate(redirectTo);
       } else {
         // Handle error from login attempt
-        console.log('Login failed:', result.error);
+        //console.log('Login failed:', result.error);
         const errorMessage = result.error?.description || 'Login failed - Please check your credentials and try again';
         message.error(errorMessage);
       }

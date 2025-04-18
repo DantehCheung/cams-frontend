@@ -49,7 +49,7 @@ const Borrow = () => {
 
   // Set a page identifier when component mounts
   useEffect(() => {
-    console.log('Current access level:', authContext.getAccessLevel());
+   // console.log('Current access level:', authContext.getAccessLevel());
     // Set the current active page to borrow
     if (window.ARSInterface && typeof window.ARSInterface.setActivePage === 'function') {
       window.ARSInterface.setActivePage('borrow');
@@ -377,11 +377,11 @@ const fetchRoomsByCampus = async (campusId) => {
       campusID: campusId
     });
     
-    console.log('Rooms data direct response:', response.data);
+  //  console.log('Rooms data direct response:', response.data);
     
     // Check for different room data structures based on the response log
     // Log the full response to better understand the structure
-    console.log('Full rooms response structure:', response.data);
+  //  console.log('Full rooms response structure:', response.data);
     
     if (response.data) {
       let roomArray = [];
@@ -401,7 +401,7 @@ const fetchRoomsByCampus = async (campusId) => {
           name: room.roomName || room.name,
           number: room.roomNumber || ''
         }));
-        console.log('Formatted rooms:', formattedRooms);
+  //      console.log('Formatted rooms:', formattedRooms);
         setRooms(formattedRooms);
       } else {
         console.log('No rooms found in response');
@@ -455,10 +455,10 @@ const fetchDevicesByRoom = async (roomId) => {
       roomID: roomId
     });
     
-    console.log('Devices data direct response:', response.data);
+ //   console.log('Devices data direct response:', response.data);
     
     // Log full response for debugging
-    console.log('Full devices response structure:', response.data);
+ //   console.log('Full devices response structure:', response.data);
     
     // Check for device property or direct array
     if (response.data) {
@@ -487,7 +487,7 @@ const fetchDevicesByRoom = async (roomId) => {
           roomId: device.roomId || device.roomID
         }));
       
-      console.log('Formatted devices:', availableDevices);
+  //    console.log('Formatted devices:', availableDevices);
       setDevices(availableDevices);
     } else {
       setDevices([]);
@@ -527,7 +527,7 @@ const fetchDevicesByRoom = async (roomId) => {
         returned: recordsParams.returned
       };
       
-      console.log('Fetching borrow records with params:', params);
+ //     console.log('Fetching borrow records with params:', params);
       
       // Call the API service
       const result = await getBorrowRecords(params);
