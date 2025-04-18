@@ -1,74 +1,106 @@
-import React from "react";
-import { Typography, Select, Button, Divider, List } from "antd";
-
+import React, { useState } from "react";
+import { Button, Divider, Space, Tabs, message, theme, Typography, Select,Card } from "antd";
+import { assetService } from "../../api";
+import {
+  AlipayOutlined,
+  LockOutlined,
+  MobileOutlined,
+  TaobaoOutlined,
+  UserOutlined,
+  WeiboOutlined,
+  DownloadOutlined
+} from '@ant-design/icons';
 const { Title } = Typography;
 
 const downloadVer = () => {
-  return (
-    <div>
-      <form action="">
-      <Title level={2}>Download Electron App</Title>
-      <p>
-          <label>Distribution Package: </label>
-          <Select
-            showSearch
-            style={{ width: 200 }}
-            placeholder="installer, .zip"
-            optionFilterProp="label"
-            filterSort={(optionA, optionB) =>
-              (optionA?.label ?? "")
-                .toLowerCase()
-                .localeCompare((optionB?.label ?? "").toLowerCase())
-            }
-            options={[
-              {
-                value: "1",
-                label: "installer",
-              },
-              {
-                value: "2",
-                label: ".zip",
-              }
-            ]}
-          />
-        </p>
 
-         <br />
-                <p>
-                  <label>OS Choice: </label>
-                  <Select
-                    showSearch
-                    style={{ width: 265 }}
-                    placeholder="windows, linux, mac"
-                    optionFilterProp="label"
-                    filterSort={(optionA, optionB) =>
-                      (optionA?.label ?? "")
-                        .toLowerCase()
-                        .localeCompare((optionB?.label ?? "").toLowerCase())
-                    }
-                    options={[
-                      {
-                        value: "1",
-                        label: "windows",
-                      },
-                        {
-                            value: "2",
-                            label: "linux",
-                        },
-                        {
-                            value: "3",
-                            label: "mac",
-                        }
-                    ]}
-                  />
-                  </p>
-                  <p style={{ marginTop: '20px' }}>
-                    <Button type="primary" style={{ marginRight: '20px' }}>
-                        Download</Button>
-                        <Button type="primary" danger>Cancel</Button>
-                  </p>
-      </form>
-    </div>
+  const [selectedPlatform, setSelectedPlatform] = useState('winx64');
+  const [selectedPackage, setSelectedPackage] = useState('zip');
+
+
+
+  // Update handleDownload function
+  const handleDownload = async () => {
+    try {
+      const result = await assetService.downloadElectronApp(selectedPlatform, selectedPackage);
+      if (!result.success) {
+        message.error('Failed to download application');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      message.error('An error occurred while downloading');
+    }
+  };
+
+
+
+
+  return (
+   
+
+       <div style={{
+             position: 'fixed',
+             bottom: 600,
+             left: 250,
+             padding: '20px',
+             textAlign: 'center',
+             backgroundColor: 'rgba(0, 0, 0, 0.65)',
+             backdropFilter: 'blur(4px)',
+             borderRadius: '8px',
+             margin: '0 auto',
+             width: '500px',
+             maxWidth: '500px',
+             zIndex: 1000, // Add high z-index to appear above video
+           }}>
+             <Typography.Title level={5} style={{ color: 'white', marginBottom: '16px' }}>
+               Download Desktop Version 
+             </Typography.Title>
+     
+             <Space direction="vertical" style={{ width: '100%' }}>
+               <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                 <Typography.Text style={{ color: 'white' }}>Platform:</Typography.Text>
+                 <Select
+                   value={selectedPlatform}
+                   onChange={(value) => setSelectedPlatform(value)}
+                   style={{ width: 200 }}
+                   options={[
+                     { value: 'winx64', label: 'Windows' },
+                     { value: 'mac', label: 'macOS', disabled: true },
+                     { value: 'linux', label: 'Linux', disabled: true },
+                   ]}
+                 />
+               </Space>
+     
+               <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                 <Typography.Text style={{ color: 'white' }}>Distribution Package:</Typography.Text>
+                 <Select
+                   value={selectedPackage}
+                   onChange={(value) => setSelectedPackage(value)}
+                   style={{ width: 200 }}
+                   options={[
+                     { value: 'zip', label: 'Zip' },
+                     { value: 'installer', label: 'Installer' },
+                   ]}
+                 />
+               </Space>
+     
+               <Button
+                 type="primary"
+                 icon={<DownloadOutlined />}
+                 style={{ width: '100%', marginTop: '10px' }}
+                 onClick={handleDownload}
+               >
+                 Download Now
+               </Button>
+     
+               <Typography.Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '12px' }}>
+                 Desktop version provides enhanced features including direct card reader integration.
+               </Typography.Text>
+             </Space>
+           </div>
+
+     
+ 
   );
 }
 

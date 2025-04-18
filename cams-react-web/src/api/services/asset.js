@@ -1009,29 +1009,6 @@ export const changePassword = async (passwordData) => {
 
 // download app
 
-/***
- * 
- * 
-function downloadAppFile(osChoice, typeChoice) {
-  axios.get(\`http://localhost:8080/api/files/app/download/\${osChoice}/\${typeChoice}\`, {
-    params: { auto: true },
-    responseType: 'blob',
-  })
-  .then((response) => {
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', \`CAMS_\${osChoice}_\${typeChoice}.zip\`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  })
-  .catch((error) => {
-    console.error(\`Request error:\`, error);
-  });
-}
- */
-
 // Add this function to asset.js
 export const downloadElectronApp = async (platform, packageType) => {
   try {
