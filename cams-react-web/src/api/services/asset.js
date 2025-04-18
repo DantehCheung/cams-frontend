@@ -1038,3 +1038,28 @@ export const downloadElectronApp = async (platform, packageType) => {
     return { success: false, error: error.message };
   }
 };
+
+// Generate Report
+
+export const generateBorrowReport = async (reportData) => {
+
+  try{
+
+    const token = axiosInstance.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+
+    const response = await axiosInstance.post('/report/device-borrow-history',{
+      token: token,
+      studentCNA: reportData.targetCNA
+    })
+    
+    if(response.data){
+      return { success: true, data: response.data };
+    }else{
+      return { success: false, error: response.data };
+    }
+
+  }catch(error){
+    return { success: false, error: error.message || 'An unexpected error occurred' };
+  }
+
+}

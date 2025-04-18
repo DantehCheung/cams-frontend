@@ -30,6 +30,7 @@ const iconStyles = {
   cursor: 'pointer',
 };
 
+const {Text} = Typography
 
 
 const Page = () => {
@@ -154,18 +155,18 @@ const Page = () => {
     }
   };
 
-// Update handleDownload function
-const handleDownload = async () => {
-  try {
-    const result = await assetService.downloadElectronApp(selectedPlatform, selectedPackage);
-    if (!result.success) {
-      message.error('Failed to download application');
+  // Update handleDownload function
+  const handleDownload = async () => {
+    try {
+      const result = await assetService.downloadElectronApp(selectedPlatform, selectedPackage);
+      if (!result.success) {
+        message.error('Failed to download application');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      message.error('An error occurred while downloading');
     }
-  } catch (error) {
-    console.error('Download error:', error);
-    message.error('An error occurred while downloading');
-  }
-};
+  };
 
 
 
@@ -208,12 +209,13 @@ const handleDownload = async () => {
         }}
         activityConfig={{
           style: {
-            boxShadow: '0px 0px 8px rgba(0, 0, 0, 0.2)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.15) 100%)',
+            backdropFilter: 'blur(6px)',
+            padding: '16px',
             color: token.colorTextHeading,
-            borderRadius: 8,
-            backgroundColor: 'rgba(255,255,255,0.25)',
-            backdropFilter: 'blur(4px)',
-          },
+          } ,
           title: 'Campus Asset Management System',
           action: (
             <div
@@ -350,12 +352,20 @@ const handleDownload = async () => {
           </>
         )}
         {loginType === 'account' && (
-          <div style={{ marginBlockEnd: 24 }}>
+          /*<div style={{ marginBlockEnd: 24 }}>
             <ProFormCheckbox noStyle name="autoLogin">
               Auto Login
             </ProFormCheckbox>
             <a style={{ float: 'right' }}>Forgot Password</a>
-          </div>
+          </div>*/
+          <Text type='secondary' style={{
+            fontFamily: 'Roboto, sans-serif',
+            fontSize: '14px',
+            display: 'block',
+            textAlign: 'center',
+            marginTop: 0,
+            marginBottom: 20 // Add space below (before the next element)
+          }}>Forget Password please find technician</Text>
         )}
 
       </LoginFormPage>
@@ -367,22 +377,23 @@ const handleDownload = async () => {
 
 
 
-      <div style={{
-        position: 'absolute',
-        bottom: 150,
-        left: 25,
-        padding: '20px',
-        textAlign: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(4px)',
-        borderRadius: '8px',
-        margin: '0 auto',
-        width: '500px',
-        maxWidth: '500px',
-        zIndex: 1000, // Add high z-index to appear above video
-      }}>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 150,
+          left: 25,
+          padding: '20px',
+          textAlign: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          borderRadius: '8px',
+          margin: '0 auto',
+          width: '500px',
+          maxWidth: '500px',
+          zIndex: 1000, // Add high z-index to appear above video
+        }}>
         <Typography.Title level={5} style={{ color: 'white', marginBottom: '16px' }}>
-          Download Desktop Version (For Guest)
+          Download Desktop Version <span style={{color: 'skyblue'}}>For Guest</span>
         </Typography.Title>
 
         <Space direction="vertical" style={{ width: '100%' }}>
