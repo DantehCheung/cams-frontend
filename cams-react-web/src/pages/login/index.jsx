@@ -41,7 +41,7 @@ const Page = () => {
   const navigate = useNavigate();
 
   const [selectedPlatform, setSelectedPlatform] = useState('winx64');
-  const [selectedPackage, setSelectedPackage] = useState('zip');
+  const [selectedPackage, setSelectedPackage] = useState('unpacked');
 
   const { login, loginByCard } = useAuth();
 
@@ -401,26 +401,43 @@ const Page = () => {
             <Typography.Text style={{ color: 'white' }}>Platform:</Typography.Text>
             <Select
               value={selectedPlatform}
-              onChange={(value) => setSelectedPlatform(value)}
+              onChange={(value) => {
+              const packageSelection = document.getElementById("package-selection");
+
+              if (value === "android") {
+                // hide the package selection for Android
+                if (packageSelection) {
+                  packageSelection.style.display = "none";
+                }
+              }else {
+                // show the package selection for other platforms
+                if (packageSelection) {
+                  packageSelection.style.display = "";
+                }
+              }
+              setSelectedPlatform(value)
+            }}
               style={{ width: 200 }}
               options={[
-                { value: 'winx64', label: 'Windows' },
-                { value: 'mac', label: 'macOS', disabled: true },
-                { value: 'linux', label: 'Linux', disabled: true },
-              ]}
+              { value: "winx64", label: "Windows 64-bit" },
+              { value: "winx86", label: "Windows 32-bit" },
+              { value: "mac", label: "macOS" },
+              { value: "linux", label: "Linux" },
+              { value: "android", label: "Android" },
+            ]}
             />
           </Space>
 
-          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space style={{ width: '100%', justifyContent: 'space-between' }} id="package-selection">
             <Typography.Text style={{ color: 'white' }}>Distribution Package:</Typography.Text>
             <Select
               value={selectedPackage}
               onChange={(value) => setSelectedPackage(value)}
               style={{ width: 200 }}
               options={[
-                { value: 'zip', label: 'Zip' },
-                { value: 'installer', label: 'Installer' },
-              ]}
+              { value: "unpacked", label: "Zip" },
+              { value: "setup", label: "Installer" },
+            ]}
             />
           </Space>
 
