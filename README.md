@@ -1,6 +1,6 @@
 # react-vite
 latest fix: RFID connect, Permission tag in home page
-function left: Report, Download
+function left: Report
 
 Higher Diploma in Software Engineering - Final Year Project
 
