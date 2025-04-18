@@ -1081,25 +1081,38 @@ export const downloadElectronApp = async (platform, packageType) => {
     if (!platform || !packageType) {
       throw new Error("Platform and package type are required for download");
     }
-    const response =
+    // Determine the download URL based on platform and package type
+    const url =
       platform === "android"
-        ? await axiosInstance.get(`/files/app/download/android?auto=true`, {
-            responseType: "blob", // Important for binary file downloads
-          })
-        : await axiosInstance.get(
-            `/files/app/download/${platform}/${packageType}?auto=true`,
-            {
-              responseType: "blob", // Important for binary file downloads
-            }
-          );
+      ? `/files/app/download/android?auto=true`
+      : `/files/app/download/${platform}/${packageType}?auto=true`;
 
-    // Create a download link and trigger it
+    // Fetch the file as a blob
+    const response = await axiosInstance.get(url, {
+      responseType: "blob", // Important for binary file downloads
+    });
+
+    // Create a blob URL for the downloaded file
     const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement("a");
     link.href = blobUrl;
 
-    // Set a meaningful filename based on the selected options
-    link.setAttribute("download", "");
+    // Set a meaningful filename based on platform and package type
+    const filename =
+      platform === "android"
+      ? "CAMS_android.apk"
+      : `CAMS_${platform}_${packageType}.zip`;
+    link.setAttribute("download", filename);
+
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    // Clean up the blob URL
+    window.URL.revokeObjectURL(blobUrl);
+
+    return { success: true };
 
     // Trigger download
     document.body.appendChild(link);
