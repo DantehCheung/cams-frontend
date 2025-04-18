@@ -1006,3 +1006,58 @@ export const changePassword = async (passwordData) => {
     return { success: false, error: error.message || 'An unexpected error occurred' };
   }
 }
+
+// download app
+
+/***
+ * 
+ * 
+function downloadAppFile(osChoice, typeChoice) {
+  axios.get(\`http://localhost:8080/api/files/app/download/\${osChoice}/\${typeChoice}\`, {
+    params: { auto: true },
+    responseType: 'blob',
+  })
+  .then((response) => {
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', \`CAMS_\${osChoice}_\${typeChoice}.zip\`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  })
+  .catch((error) => {
+    console.error(\`Request error:\`, error);
+  });
+}
+ */
+
+// Add this function to asset.js
+export const downloadElectronApp = async (platform, packageType) => {
+  try {
+    const response = await axiosInstance.get(`/files/app/download/${platform}/${packageType}`, {
+      responseType: 'blob' // Important for binary file downloads
+    });
+    
+    // Create a download link and trigger it
+    const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    
+    // Set a meaningful filename based on the selected options
+    link.setAttribute('download', `CAMS-${platform}-${packageType}.zip`);
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
+    // Clean up the blob URL
+    window.URL.revokeObjectURL(blobUrl);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Download error:', error);
+    return { success: false, error: error.message };
+  }
+};

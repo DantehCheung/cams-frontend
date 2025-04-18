@@ -20,7 +20,7 @@ const ConnectRFID = () => {
     resetConnection,
     checkConnectionStatus,
     setLogReference,
-    inBrowser,  
+    inBrowser,
     // Add this to your context if not already there
     connectedDevice
   } = useRfid();
@@ -48,27 +48,27 @@ const ConnectRFID = () => {
             <Row gutter={[16, 16]}>
               <Col xs={24}>
                 <Form.Item label="Available Devices">
-                <div className="rfid-status-box" style={{
-                padding: '12px 16px',
-                border: '1px solid #d9d9d9',
-                borderRadius: '6px',
-                backgroundColor: availableDevices ? '#f6ffed' : '#f5f5f5',
-                borderColor: availableDevices ? '#b7eb8f' : '#d9d9d9',
-                height: '50px',
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: '16px'
-              }}>
+                  <div className="rfid-status-box" style={{
+                    padding: '12px 16px',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '6px',
+                    backgroundColor: availableDevices ? '#f6ffed' : '#f5f5f5',
+                    borderColor: availableDevices ? '#b7eb8f' : '#d9d9d9',
+                    height: '50px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontSize: '16px'
+                  }}>
                     {availableDevices.length > 0 ? (
-                  
-                     
+
+
                       availableDevices.map((device, index) => (
-                       
+
                         <div  key={index}>
-                          
+
                           <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px', marginRight: '8px' }} />
                           {device.label || device.value || JSON.stringify(device)}</div>
-                   
+
                       ))
                     ) : (
                       <Text type="danger">No devices found</Text>
