@@ -86,7 +86,7 @@ const downloadVer = () => {
               }else {
                 // show the package selection for other platforms
                 if (packageSelection) {
-                  packageSelection.style.display = "block";
+                  packageSelection.style.display = "";
                 }
               }
               setSelectedPlatform(value)

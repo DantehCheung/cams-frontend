@@ -1099,7 +1099,7 @@ export const downloadElectronApp = async (platform, packageType) => {
     link.href = blobUrl;
 
     // Set a meaningful filename based on the selected options
-    //link.setAttribute("download", `CAMS_${platform}_${packageType}.zip`);
+    link.setAttribute("download", "");
 
     // Trigger download
     document.body.appendChild(link);
