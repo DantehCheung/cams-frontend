@@ -30,11 +30,10 @@ const fetchData = async (url, data) => {
           // 更新新的 Token
           setAuthToken(refreshResponse.data.token, refreshResponse.data.refreshToken);
           data.token = refreshResponse.data.token;
-
           // 使用新的 Token 重試原始請求
           const retryResponse = await axiosInstance.post(url, data);
           if (retryResponse.data && !retryResponse.data.errorCode) {
-            return retryResponse.data;
+            return retryResponse;
           } else {
             console.error("Retry request failed:", retryResponse.data);
             return { error: retryResponse.data };
