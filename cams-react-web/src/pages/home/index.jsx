@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Col, Row, Card, Table, Tag } from "antd";
 import "./home.css";
 import userImg from "../../assets/images/cat.png";
-import { systemService, assetService } from "../../api";
+import {  assetService } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 
 const Home = () => {
@@ -68,16 +68,6 @@ const Home = () => {
     
     const fetchData = async () => {
       try {
-        // Try to fetch system data for the table
-        try {
-          const res = await systemService.getData();
-          if (res && res.data && res.data.data && res.data.data.detailedAssetTableData) {
-            setTableData(res.data.data.detailedAssetTableData);
-          }
-        } catch (tableError) {
-          console.warn("Unable to fetch table data:", tableError);
-          // Continue execution even if table data fetch fails
-        }
         
         // Try to fetch home data including pending items
         try {

@@ -1,27 +1,12 @@
-// Re-export auth functions individually for direct import
-export { 
-  login, 
-  logout,
-  refreshToken,
-  isAuthenticated,
-  hasPermission,
-  canAccessBorrowPage,
-  getAccessLevel,
-  getAccessPage
-} from './auth';
-
 // Export service modules as namespaces
-import * as userServiceExports from './services/user';
 import * as assetServiceExports from './services/asset';
-import * as systemServiceExports from './services/system';
 
-// Expose services as namespaced objects
-export const userService = userServiceExports;
+
+// Expose services as namespaced object
 export const assetService = assetServiceExports;
-export const systemService = systemServiceExports;
 
-// For backward compatibility - re-export the getMenu function directly
-export const getMenu = systemServiceExports.getMenu;
+
+
 
 // Constants for access control
 // 根據後端的 AccessPagePermission 定義頁面權限常數
@@ -54,8 +39,6 @@ export const PAGE_PERMISSIONS = {
   CHECK: 1 << 18,                        // 2^18 = 262144
 };
 
-// 定義兼容性別名，以防 auth.js 使用不同名稱
-export const BORROW_PAGE = PAGE_PERMISSIONS.BORROW;
 
 // 根據後端的 Permission 定義訪問級別常數
 export const ACCESS_LEVELS = {

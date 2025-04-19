@@ -10,6 +10,8 @@ export const AuthProvider = ({ children }) => {
   // State to hold the authentication data in memory (not localStorage)
   const [authState, setAuthState] = useState({
     token: null,
+    // add refreshToken
+    refreshToken: null,
     accessLevel: null,
     accessPage: null,
     user: null,
@@ -32,12 +34,14 @@ export const AuthProvider = ({ children }) => {
       });
       
       if (response.data && !response.data.errorCode) {
-        const { token, accessLevel, accessPage, firstName, lastName, lastLoginIp } = response.data;
+        const { token, refreshToken,accessLevel, accessPage, firstName, lastName, lastLoginIp } = response.data;
         const numericAccessLevel = Number(accessLevel);
         
         // Store the access token in memory only
         setAuthState({
           token,
+          refreshToken,
+          // Store refreshToken in memory
           accessLevel: numericAccessLevel,
           accessPage: Number(accessPage),
           user: { firstName, lastName, lastLoginIp },
@@ -78,12 +82,13 @@ export const AuthProvider = ({ children }) => {
       });
       
       if (response.data && !response.data.errorCode) {
-        const { token, accessLevel, accessPage, firstName, lastName, lastLoginIp } = response.data;
+        const { token, refreshToken, accessLevel, accessPage, firstName, lastName, lastLoginIp } = response.data;
         const numericAccessLevel = Number(accessLevel);
         
         // Store the access token in memory only
         setAuthState({
           token,
+          refreshToken,
           accessLevel: numericAccessLevel,
           accessPage: Number(accessPage),
           user: { firstName, lastName, lastLoginIp },
@@ -127,6 +132,8 @@ export const AuthProvider = ({ children }) => {
       // Clear auth state from memory
       setAuthState({
         token: null,
+        refreshToken: null,
+        // Clear refreshToken from memory
         accessLevel: null,
         accessPage: null,
         user: null,
@@ -219,6 +226,7 @@ export const AuthProvider = ({ children }) => {
   const getAccessLevel = () => authState.accessLevel;
   const getAccessPage = () => authState.accessPage;
   const getUserInfo = () => authState.user;
+  const getRefreshToken = () => authState.refreshToken;
 
   // Provide the auth context value
   const authContextValue = {
@@ -248,3 +256,4 @@ export const useAuth = () => {
   }
   return context;
 };
+
