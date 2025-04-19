@@ -1,4 +1,4 @@
-# react-vite
+# cams-frontend
 
 Higher Diploma in Software Engineering - Final Year Project
 
