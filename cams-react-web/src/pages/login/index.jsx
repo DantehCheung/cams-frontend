@@ -406,7 +406,7 @@ const Page = () => {
           cursor: 'grab' // 顯示拖動指示器
         }}>
         <Typography.Title level={5} style={{ color: 'white', marginBottom: '16px' }}>
-          Download Desktop Version <span style={{color: 'skyblue'}}>For Guest</span>
+           <span style={{color: 'skyblue'}}>Download Application Package</span>
         </Typography.Title>
 
         <Space direction="vertical" style={{ width: '100%' }}>
