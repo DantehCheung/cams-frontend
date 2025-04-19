@@ -36,16 +36,16 @@ const fetchData = async (url, data) => {
             return retryResponse;
           } else {
             console.error("Retry request failed:", retryResponse.data);
-            return { error: retryResponse.data };
+            return retryResponse;
           }
         } else {
           console.error("Failed to renew token:", refreshResponse.data);
-          return { error: refreshResponse.data };
+          return refreshResponse;
         }
       } else {
         // 處理其他 errorCode
         console.error(`Unhandled errorCode: ${response.data.errorCode}`);
-        return { error: response.data };
+        return response;
       }
     }
 
@@ -53,7 +53,7 @@ const fetchData = async (url, data) => {
     return response;
   } catch (error) {
     console.error("fetchData error:", error);
-    return { error: error.message || "Unknown error" };
+    throw error;
   }
 };
 
