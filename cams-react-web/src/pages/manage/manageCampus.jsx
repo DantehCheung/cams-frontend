@@ -22,6 +22,8 @@ const ManageCampus = () => {
         // Log the entire response for debugging
         console.log('Full response in component:', response);
         
+        
+
         // Check various possible response formats
         if (response && Array.isArray(response.c)) {
           console.log('Found response.c array format');

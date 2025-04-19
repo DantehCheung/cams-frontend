@@ -1,19 +1,78 @@
 import axios from "axios";
-import axiosInstance, { setAuthToken } from "../axios";
+import axiosInstance, { setAuthToken, getRefreshToken } from "../axios";
+
+const getToken=() => {
+  const token = axiosInstance.defaults.headers.common[
+    "Authorization"
+  ]?.replace("Bearer ", "");
+  return token || null;
+}
+
+
+const fetchData = async (url, data) => {
+  try {
+    let response = await axiosInstance.post(url, data);
+    console.log("API response in 15:", response.data);
+    // 檢查是否有 errorCode
+    if (response.data.errorCode) {
+      console.log(`ErrorCode detected: ${response.data.errorCode}`);
+
+      // 處理特定的錯誤代碼，例如 E10 或 E04
+      if (response.data.errorCode === "E10" || response.data.errorCode === "E04") {
+        console.log("Token expired or invalid, attempting to renew...");
+
+        // 嘗試刷新 Token
+        const refreshResponse = await axiosInstance.post("renewtoken", {
+          refreshToken: getRefreshToken(),
+        });
+
+        if (refreshResponse.data && !refreshResponse.data.errorCode) {
+          // 更新新的 Token
+          setAuthToken(refreshResponse.data.token, refreshResponse.data.refreshToken);
+          data.token = refreshResponse.data.token;
+
+          // 使用新的 Token 重試原始請求
+          const retryResponse = await axiosInstance.post(url, data);
+          if (retryResponse.data && !retryResponse.data.errorCode) {
+            return retryResponse.data;
+          } else {
+            console.error("Retry request failed:", retryResponse.data);
+            return { error: retryResponse.data };
+          }
+        } else {
+          console.error("Failed to renew token:", refreshResponse.data);
+          return { error: refreshResponse.data };
+        }
+      } else {
+        // 處理其他 errorCode
+        console.error(`Unhandled errorCode: ${response.data.errorCode}`);
+        return { error: response.data };
+      }
+    }
+
+    // 如果沒有 errorCode，返回正常的響應
+    return response;
+  } catch (error) {
+    console.error("fetchData error:", error);
+    return { error: error.message || "Unknown error" };
+  }
+};
+
+
 
 export const getHomeData = async () => {
   try {
     // No need to get token from localStorage anymore - the axios interceptor will add it to headers
     // The backend should be updated to get the token from Authorization header instead of request body
     // For now, we'll get the token from the axios default headers if we need to include it in body
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Send token in the request body as JSON (for backward compatibility with current backend)
-    const response = await axiosInstance.post("gethome", {
+    const response = await fetchData("gethome", {
       token: token,
     });
+
+
 
     if (response.data && !response.data.errorCode) {
       // No need to update localStorage anymore - all user info is managed by AuthContext
@@ -32,10 +91,8 @@ export const getHomeData = async () => {
 // Campus Call API Request
 export const getCampusData = async () => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("getcampus", {
+    const token = getToken();
+    const response = await fetchData("getcampus", {
       token: token,
     });
 
@@ -53,10 +110,8 @@ export const getCampusData = async () => {
 
 export const addCampus = async (campusName, campusShortName) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("addcampus", {
+    const token = getToken();
+    const response = await fetchData("addcampus", {
       campusName: campusName,
       campusShortName: campusShortName,
       token: token,
@@ -76,10 +131,8 @@ export const addCampus = async (campusName, campusShortName) => {
 
 export const editCampus = async (campusId, campusName, campusShortName) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("editcampus", {
+    const token = getToken();
+    const response = await fetchData("editcampus", {
       campusID: campusId,
       campusName: campusName,
       campusShortName: campusShortName,
@@ -100,10 +153,8 @@ export const editCampus = async (campusId, campusName, campusShortName) => {
 
 export const deleteCampus = async (campusId) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("deletecampus", {
+    const token = getToken();
+    const response = await fetchData("deletecampus", {
       campusID: campusId,
       token: token,
     });
@@ -124,10 +175,8 @@ export const deleteCampus = async (campusId) => {
 
 export const getRoomsByCampus = async (campusId) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("getrooms", {
+    const token = getToken();
+    const response = await fetchData("getrooms", {
       campusID: campusId,
       token: token,
     });
@@ -146,10 +195,8 @@ export const getRoomsByCampus = async (campusId) => {
 
 export const addRoom = async (campusId, roomNumber, roomName) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("addroom", {
+    const token = getToken();
+    const response = await fetchData("addroom", {
       campusID: campusId,
       roomNumber: roomNumber,
       roomName: roomName,
@@ -170,10 +217,8 @@ export const addRoom = async (campusId, roomNumber, roomName) => {
 
 export const editRoom = async (roomId, campusId, roomNumber, roomName) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("editroom", {
+    const token = getToken();
+    const response = await fetchData("editroom", {
       roomID: roomId,
       campusID: campusId,
       roomNumber: roomNumber,
@@ -195,10 +240,8 @@ export const editRoom = async (roomId, campusId, roomNumber, roomName) => {
 
 export const deleteRoom = async (roomId) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("deleteroom", {
+    const token = getToken();
+    const response = await fetchData("deleteroom", {
       roomID: roomId,
       token: token,
     });
@@ -219,9 +262,7 @@ export const deleteRoom = async (roomId) => {
 
 export const getItemsByRoom = async (roomId, stateList = []) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
     // Prepare request data with optional stateList
     const requestData = {
       roomID: roomId,
@@ -234,7 +275,7 @@ export const getItemsByRoom = async (roomId, stateList = []) => {
     }
 
   //  console.log("Sending getitems request with data:", requestData);
-    const response = await axiosInstance.post("getitems", requestData);
+    const response = await fetchData("getitems", requestData);
 
    // console.log("API response from getItemsByRoom:", response.data);
 
@@ -288,9 +329,7 @@ export const getItemsByRoom = async (roomId, stateList = []) => {
  */
 export const addDevice = async (deviceData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
    // console.log("Adding device with data:", deviceData);
    // console.log("Device parts from form:", deviceData.deviceParts);
@@ -339,7 +378,7 @@ export const addDevice = async (deviceData) => {
     };
 
    // console.log("Adding device with data:", payload);
-    const response = await axiosInstance.post("additem", payload);
+    const response = await fetchData("additem", payload);
    // console.log("Add device API response:", response.data);
 
     // Check if we have a deviceID in the response (new format)
@@ -390,7 +429,7 @@ export const addDevice = async (deviceData) => {
 
 export const deleteItemById = async (deleteTargetData) => {
   try {
-    const response = await axiosInstance.post("deleteitem", deleteTargetData);
+    const response = await fetchData("deleteitem", deleteTargetData);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -407,14 +446,12 @@ export const deleteItemById = async (deleteTargetData) => {
  */
 export const updateDevice = async (deviceData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
     // sensitive data
     // console.log('Updating device with data:', JSON.stringify(deviceData, null, 2));
 
     // Use the new edititem endpoint
-    const response = await axiosInstance.post("edititem", {
+    const response = await fetchData("edititem", {
       ...deviceData,
       token: token,
     });
@@ -450,9 +487,7 @@ export const uploadDeviceDoc = async (file, deviceId) => {
       return { success: false, error: "Invalid device ID" };
     }
 
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Create FormData object to handle file upload
     const formData = new FormData();
@@ -472,7 +507,7 @@ export const uploadDeviceDoc = async (file, deviceId) => {
     console.log(`Uploading file for device ID ${numericDeviceId}`);
 
     // Use the files endpoint for upload
-    const response = await axiosInstance.post(
+    const response = await fetchData(
       "files/devicedoc/upload",
       formData,
       config
@@ -511,10 +546,8 @@ export const uploadDeviceDoc = async (file, deviceId) => {
  */
 export const getDeviceDocuments = async (deviceId) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post(
+    const token = getToken();
+    const response = await fetchData(
       `files/devicedoc/list/${deviceId}`,
       {
         token: token,
@@ -536,7 +569,7 @@ export const getDeviceDocuments = async (deviceId) => {
  */
 export const deleteRFID = async (rfidData) => {
   try {
-    const response = await axiosInstance.post("deleterfid", rfidData);
+    const response = await fetchData("deleterfid", rfidData);
 
   //  console.log("API response from deleteRFID:", response.data);
 
@@ -555,7 +588,7 @@ export const deleteRFID = async (rfidData) => {
  */
 export const assignRFID = async (rfidData) => {
   try {
-    const response = await axiosInstance.post("assignrfid", rfidData);
+    const response = await fetchData("assignrfid", rfidData);
  //   console.log("API response from addRFID:", response.data);
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -585,9 +618,7 @@ export const downloadDeviceDoc = async (docPath) => {
 
     // Extract the token from the Authorization header
     // The backend expects this as a separate 'token' header
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Make the request with the token in a specific header as required by the backend
     const response = await axiosInstance.get(
@@ -625,12 +656,10 @@ export const downloadDeviceDoc = async (docPath) => {
 export const deleteDeviceDoc = async (deviceId, docPath) => {
   try {
     // Extract the token from the Authorization header
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Make the request with the required parameters
-    const response = await axiosInstance.post("deletedoc", {
+    const response = await fetchData("deletedoc", {
       token, // Include token in the request body as required by the API
       deviceID: deviceId, // The device ID
       docPath, // The full document path
@@ -655,9 +684,7 @@ export const deleteDeviceDoc = async (deviceId, docPath) => {
 export const updateItemPart = async (partData) => {
   try {
     // Extract the token from the Authorization header
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Prepare the request payload
     const payload = {
@@ -669,7 +696,7 @@ export const updateItemPart = async (partData) => {
     };
 
     // Make the API request
-    const response = await axiosInstance.post("updateitempart", payload);
+    const response = await fetchData("updateitempart", payload);
 
   //  console.log("Update item part response:", response.data);
 
@@ -690,9 +717,7 @@ export const updateItemPart = async (partData) => {
 
 export const borrowItem = async (borrowData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Create the request payload
     const requestData = {
@@ -702,7 +727,7 @@ export const borrowItem = async (borrowData) => {
     };
 
     // Make the API call
-    const response = await axiosInstance.post("br/borrow", requestData);
+    const response = await fetchData("br/borrow", requestData);
 
    // console.log("API response from borrowItem:", response.data);
 
@@ -734,16 +759,14 @@ export const borrowItem = async (borrowData) => {
 export const getDeviceIdByRFID = async (rfid) => {
   try {
     // Extract the token from the Authorization header
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     const requestData = {
       token,
       RFID: rfid,
     };
 
-    const response = await axiosInstance.post("getitembyrfid", requestData);
+    const response = await fetchData("getitembyrfid", requestData);
 
    // console.log("API response from getDeviceIdByRFID:", response.data);
 
@@ -777,9 +800,7 @@ export const getDeviceIdByRFID = async (rfid) => {
 export const reserveItem = async (itemId, borrowRecordDate, endDate) => {
   try {
     // Get token from authorization header
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Prepare the request data
     const requestData = {
@@ -792,7 +813,7 @@ export const reserveItem = async (itemId, borrowRecordDate, endDate) => {
    // console.log("Sending reservation request:", requestData);
 
     // Send the reservation request
-    const response = await axiosInstance.post("br/reservation", requestData);
+    const response = await fetchData("br/reservation", requestData);
 
   //  console.log("Reservation response:", response.data);
 
@@ -820,9 +841,7 @@ export const reserveItem = async (itemId, borrowRecordDate, endDate) => {
 export const getBorrowRecords = async (params) => {
   try {
     // Get token from authorization header
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     // Prepare the request data with optional filters
     const requestData = {
@@ -835,7 +854,7 @@ export const getBorrowRecords = async (params) => {
   //  console.log("Fetching borrow records with params:", requestData);
 
     // Send the API request
-    const response = await axiosInstance.post(
+    const response = await fetchData(
       "br/getborrowrecord",
       requestData
     );
@@ -873,15 +892,13 @@ export const getBorrowRecords = async (params) => {
 // return///////////////////////////////////////////////////////////////////////////////////////////////
 export const checkReturn = async (checkReturnParams) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
     const requestData = {
       token: token,
       RFIDList: checkReturnParams.rfidlist,
     };
 
-    const response = await axiosInstance.post("br/check", requestData);
+    const response = await fetchData("br/check", requestData);
 
     // Assuming the backend returns something like [{ deviceID, deviceName, partsChecked }]
     if (response.data) {
@@ -898,9 +915,7 @@ export const checkReturn = async (checkReturnParams) => {
 
 export const returnItem = async (rfidListData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     const idList = [];
     for (const rfidtag of rfidListData.rfidList) {
@@ -911,7 +926,7 @@ export const returnItem = async (rfidListData) => {
       }
     }
 
-    const response = await axiosInstance.post("br/return", {
+    const response = await fetchData("br/return", {
       token: token,
       returnList: idList,
     });
@@ -943,10 +958,8 @@ export const returnItem = async (rfidListData) => {
 
 export const addUser = async (AddUserData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("/adduser", {
+    const token = getToken();
+    const response = await fetchData("/adduser", {
       token: token,
       userList: AddUserData.userList,
     });
@@ -967,10 +980,8 @@ export const addUser = async (AddUserData) => {
 // Bind card with sid
 export const bindUserCard = async (targetCNA, targetSID) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
-    const response = await axiosInstance.post("/addusercard", {
+    const token = getToken();
+    const response = await fetchData("/addusercard", {
       CardID: targetSID,
       CNA: targetCNA,
       token: token,
@@ -992,13 +1003,11 @@ export const bindUserCard = async (targetCNA, targetSID) => {
 // Edit user card
 export const editCard = async (editCardData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
     //console.log(editCardData)
 
-    const response = await axiosInstance.post("editusercard", {
+    const response = await fetchData("editusercard", {
       CardID: editCardData.cardID,
       newCardID: editCardData.newCardID,
       state: editCardData.targetState,
@@ -1021,12 +1030,10 @@ export const editCard = async (editCardData) => {
 // Delete user card
 export const deleteCard = async (deleteCardID) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
   //  console.log("delCardid:", deleteCardID);
-    const response = await axiosInstance.post("/deleteusercard", {
+    const response = await fetchData("/deleteusercard", {
       CardID: deleteCardID,
       token: token,
     });
@@ -1050,11 +1057,9 @@ export const deleteCard = async (deleteCardID) => {
 // Change password
 export const changePassword = async (passwordData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
-    const response = await axiosInstance.post("/changepw", {
+    const response = await fetchData("/changepw", {
       token: token,
       oldPassword: passwordData.oldPassword,
       newPassword: passwordData.newPassword,
@@ -1135,11 +1140,9 @@ export const downloadElectronApp = async (platform, packageType) => {
 
 export const generateBorrowReport = async (reportData) => {
   try {
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
-    const response = await axiosInstance.post("/report/device-borrow-history", {
+    const response = await fetchData("/report/device-borrow-history", {
       token: token,
       studentCNA: reportData.targetCNA,
     });
@@ -1163,11 +1166,9 @@ export const generateOverdueReport = async (reportData) => {
 
   try{
 
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
-    const response = await axiosInstance.post("/report/overdue-devices",{
+    const response = await fetchData("/report/overdue-devices",{
       token: token,
       campusID: reportData.campusID,
       roomID: reportData.roomID,
@@ -1196,11 +1197,9 @@ export const generateDeviceStatusReport = async () => {
 
   try{
      
-    const token = axiosInstance.defaults.headers.common[
-      "Authorization"
-    ]?.replace("Bearer ", "");
+    const token = getToken();
 
-    const response = await axiosInstance.post("/report/device-status-report",{
+    const response = await fetchData("/report/device-status-report",{
       token: token
     })
 
