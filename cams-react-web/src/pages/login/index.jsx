@@ -1,4 +1,5 @@
 import React from 'react';
+import Draggable from 'react-draggable';
 import {
   AlipayOutlined,
   LockOutlined,
@@ -215,8 +216,9 @@ const Page = () => {
             backdropFilter: 'blur(6px)',
             padding: '16px',
             color: token.colorTextHeading,
+            display: 'none'
           } ,
-          title: 'Campus Asset Management System',
+          //title: 'I love shitty U',
           action: (
             <div
               style={{
@@ -376,11 +378,14 @@ const Page = () => {
 
 
 
-
+      <Draggable 
+      handle=".drag-handle" 
+      bounds="parent"
+      defaultPosition={{x: -5, y: -300}}
+    >
       <div
         style={{
           position: 'absolute',
-          bottom: 150,
           left: 25,
           padding: '20px',
           textAlign: 'center',
@@ -391,6 +396,14 @@ const Page = () => {
           width: '500px',
           maxWidth: '500px',
           zIndex: 1000, // Add high z-index to appear above video
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        }}>
+
+<div className="drag-handle" style={{
+          padding: '5px',
+          marginBottom: '10px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+          cursor: 'grab' // 顯示拖動指示器
         }}>
         <Typography.Title level={5} style={{ color: 'white', marginBottom: '16px' }}>
           Download Desktop Version <span style={{color: 'skyblue'}}>For Guest</span>
@@ -449,14 +462,15 @@ const Page = () => {
           >
             Download Now
           </Button>
-
+       
           <Typography.Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '12px' }}>
             Desktop version provides enhanced features including direct card reader integration.
           </Typography.Text>
         </Space>
+        </div>
       </div>
 
-
+      </Draggable>
 
 
     </div>
