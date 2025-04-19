@@ -15,12 +15,18 @@ const axiosInstance = axios.create({
   }
 });
 
-// Global token variable (stored in memory, not localStorage)
+// Global token variables (stored in memory, not localStorage)
 let authToken = null;
+let refreshToken = null; // 新增變數來存儲 refreshToken
 
-// Function to set the auth token (called from AuthContext)
-export const setAuthToken = (token) => {
+// 修改 setAuthToken 函數以接受 refreshToken 參數
+export const setAuthToken = (token, newRefreshToken = null) => {
   authToken = token;
+  
+  // 如果提供了 refreshToken，也進行更新
+  if (newRefreshToken !== null) {
+    refreshToken = newRefreshToken;
+  }
   
   // When token is set, update axios default headers
   if (token) {
@@ -30,48 +36,68 @@ export const setAuthToken = (token) => {
   }
 };
 
-// Request interceptor for auth token
-axiosInstance.interceptors.request.use(config => {
-  // Use token from memory instead of localStorage
-  if (authToken) {
-    config.headers.Authorization = `Bearer ${authToken}`;
-  }
-  return config;
-});
+// 導出一個函數，允許直接從外部取得當前的 refreshToken
+export const getAuthTokens = () => {
+  return { authToken };
+};
 
-// Response interceptor for handling token expiration and refresh
+// 在 AuthContext 中根據需要更新令牌的函數
+export const updateAuthTokens = (token, newRefreshToken) => {
+  authToken = token;
+  refreshToken = newRefreshToken;
+  
+  if (token) {
+    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete axiosInstance.defaults.headers.common['Authorization'];
+  }
+};
+
+// 更新攔截器中的刷新邏輯
 axiosInstance.interceptors.response.use(
   response => response,
   async error => {
     const originalRequest = error.config;
     
-    // If error is 401 Unauthorized and we haven't already tried refreshing
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 添加詳細日誌來追蹤錯誤
+    console.log('攔截到錯誤:', error.response?.status, error.response?.data);
+    
+    // 檢查是否為 E10 錯誤代碼 (Token Invalid)
+    const isE10Error = error.response?.data?.errorCode === "E10" || 
+                       (error.response?.data && JSON.stringify(error.response.data).includes('"errorCode":"E10"'));
+    
+    console.log('是否為 E10 錯誤:', isE10Error);
+    
+    // 如果是 401 錯誤或者 E10 錯誤，且尚未嘗試刷新令牌
+    if ((error.response?.status === 401 || isE10Error) && !originalRequest._retry && refreshToken) {
+      console.log('開始嘗試刷新令牌');
       originalRequest._retry = true;
       
       try {
-        // Try to refresh the token
+        // 只發送 refreshToken
         const refreshResponse = await axios.post(
-          'http://localhost:8787/api/refresh-token', 
-          {}, 
+          `${baseurl}refresh-token`, 
+          { refreshToken: refreshToken },
           { withCredentials: true }
         );
         
+        console.log('刷新令牌響應:', refreshResponse.data);
+        
         if (refreshResponse.data && refreshResponse.data.token) {
-          // Update the token in memory
+          // 更新內存中的令牌，保留原有的 refreshToken
           setAuthToken(refreshResponse.data.token);
+          console.log('令牌已刷新，正在重試原始請求');
           
-          // Retry the original request
+          // 重試原始請求
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
-        // Clear token (we'll handle redirect at component level)
+        console.error('令牌刷新失敗:', refreshError.response?.data || refreshError);
+        // 清除令牌
         setAuthToken(null);
       }
     }
-    
-    console.error('API Error:', error);
+    console.error('API Error:', error.response?.data || error);
     return Promise.reject(error);
   }
 );

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axiosInstance from '../api/axios';
 import { ACCESS_LEVELS, PAGE_PERMISSIONS } from '../api';
-
+import { setAuthToken } from '../api/axios';
 // Create the authentication context
 const AuthContext = createContext(null);
 
@@ -48,6 +48,9 @@ export const AuthProvider = ({ children }) => {
           isAuthenticated: true,
           isLoading: false,
         });
+
+          // 同時更新 axios 的兩個令牌
+        setAuthToken(token, refreshToken);
         
         // Set token for API requests
         axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
