@@ -9,9 +9,9 @@ const getToken=() => {
 }
 
 
-const fetchData = async (url, data) => {
+const fetchData = async (url, data, config = {}) => {
   try {
-    let response = await axiosInstance.post(url, data);
+    let response = await axiosInstance.post(url, data, config);
     console.log("API response in 15:", response.data);
     // 檢查是否有 errorCode
     if (response.data.errorCode) {
@@ -472,35 +472,36 @@ export const updateDevice = async (deviceData) => {
  */
 export const uploadDeviceDoc = async (file, deviceId) => {
   try {
+    
     if (!deviceId) {
       console.error("No device ID provided for file upload");
       return { success: false, error: "Device ID is required" };
     }
 
-    // Ensure deviceId is properly converted to a number if it's a string
+    /**
+     *   // Ensure deviceId is properly converted to a number if it's a string
     const numericDeviceId =
-      typeof deviceId === "string" ? parseInt(deviceId) : deviceId;
-
-    if (isNaN(numericDeviceId)) {
+    typeof deviceId === "string" ? parseInt(deviceId) : deviceId;
+     */
+  
+    if (isNaN(deviceId)) {
       console.error("Invalid device ID for file upload:", deviceId);
       return { success: false, error: "Invalid device ID" };
     }
 
     const token = getToken();
-
+    const numericDeviceId = parseInt(deviceId);
     // Create FormData object to handle file upload
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("deviceId", numericDeviceId); // Add deviceId to FormData
 
     // Set the proper headers for file upload
     const config = {
       headers: {
-        "Content-Type": "multipart/form-data",
-        token: token,
-      },
-      params: {
-        deviceId: numericDeviceId,
-      },
+        "token": token,
+        "Content-Type": "multipart/form-data", // ⚠️ Explicitly set Content-Type
+      }
     };
 
     console.log(`Uploading file for device ID ${numericDeviceId}`);

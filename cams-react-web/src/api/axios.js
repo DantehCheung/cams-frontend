@@ -10,7 +10,6 @@ const axiosInstance = axios.create({
   timeout: 10000,
   withCredentials: true, // Enable cookies for secure auth
   headers: {
-    'Content-Type': 'application/json',
     'Accept': 'application/json'
   }
 });
