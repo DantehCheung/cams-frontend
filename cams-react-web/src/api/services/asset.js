@@ -9,7 +9,7 @@ const getToken=() => {
 }
 
 
-const fetchData = async (url, data, config = {}) => {
+const PostData = async (url, data, config = {}) => {
   try {
     let response = await axiosInstance.post(url, data, config);
     console.log("API response in 15:", response.data);
@@ -31,7 +31,7 @@ const fetchData = async (url, data, config = {}) => {
           setAuthToken(refreshResponse.data.token, refreshResponse.data.refreshToken);
           data.token = refreshResponse.data.token;
           // 使用新的 Token 重試原始請求
-          const retryResponse = await axiosInstance.post(url, data);
+          const retryResponse = await axiosInstance.post(url, data, config = {});
           if (retryResponse.data && !retryResponse.data.errorCode) {
             return retryResponse;
           } else {
@@ -57,7 +57,53 @@ const fetchData = async (url, data, config = {}) => {
   }
 };
 
+const GetData = async (url, data, config = {}) => {
+  try {
+    let response = await axiosInstance.get(url, data);
+    console.log("API response in 15:", response.data);
+    // 檢查是否有 errorCode
+    if (response.data.errorCode) {
+      console.log(`ErrorCode detected: ${response.data.errorCode}`);
 
+      // 處理特定的錯誤代碼，例如 E10 或 E04
+      if (response.data.errorCode === "E10" || response.data.errorCode === "E04") {
+        console.log("Token expired or invalid, attempting to renew...");
+
+        // 嘗試刷新 Token
+        const refreshResponse = await axiosInstance.post("renewtoken", {
+          refreshToken: getRefreshToken(),
+        });
+
+        if (refreshResponse.data && !refreshResponse.data.errorCode) {
+          // 更新新的 Token
+          setAuthToken(refreshResponse.data.token, refreshResponse.data.refreshToken);
+          data.headers.token = refreshResponse.data.token;
+          // 使用新的 Token 重試原始請求
+          const retryResponse = await axiosInstance.get(url, data);
+          if (retryResponse.data && !retryResponse.data.errorCode) {
+            return retryResponse;
+          } else {
+            console.error("Retry request failed:", retryResponse.data);
+            return retryResponse;
+          }
+        } else {
+          console.error("Failed to renew token:", refreshResponse.data);
+          return refreshResponse;
+        }
+      } else {
+        // 處理其他 errorCode
+        console.error(`Unhandled errorCode: ${response.data.errorCode}`);
+        return response;
+      }
+    }
+
+    // 如果沒有 errorCode，返回正常的響應
+    return response;
+  } catch (error) {
+    console.error("fetchData error:", error);
+    throw error;
+  }
+};
 
 export const getHomeData = async () => {
   try {
@@ -67,7 +113,7 @@ export const getHomeData = async () => {
     const token = getToken();
 
     // Send token in the request body as JSON (for backward compatibility with current backend)
-    const response = await fetchData("gethome", {
+    const response = await PostData("gethome", {
       token: token,
     });
 
@@ -91,7 +137,7 @@ export const getHomeData = async () => {
 export const getCampusData = async () => {
   try {
     const token = getToken();
-    const response = await fetchData("getcampus", {
+    const response = await PostData("getcampus", {
       token: token,
     });
 
@@ -110,7 +156,7 @@ export const getCampusData = async () => {
 export const addCampus = async (campusName, campusShortName) => {
   try {
     const token = getToken();
-    const response = await fetchData("addcampus", {
+    const response = await PostData("addcampus", {
       campusName: campusName,
       campusShortName: campusShortName,
       token: token,
@@ -131,7 +177,7 @@ export const addCampus = async (campusName, campusShortName) => {
 export const editCampus = async (campusId, campusName, campusShortName) => {
   try {
     const token = getToken();
-    const response = await fetchData("editcampus", {
+    const response = await PostData("editcampus", {
       campusID: campusId,
       campusName: campusName,
       campusShortName: campusShortName,
@@ -153,7 +199,7 @@ export const editCampus = async (campusId, campusName, campusShortName) => {
 export const deleteCampus = async (campusId) => {
   try {
     const token = getToken();
-    const response = await fetchData("deletecampus", {
+    const response = await PostData("deletecampus", {
       campusID: campusId,
       token: token,
     });
@@ -175,7 +221,7 @@ export const deleteCampus = async (campusId) => {
 export const getRoomsByCampus = async (campusId) => {
   try {
     const token = getToken();
-    const response = await fetchData("getrooms", {
+    const response = await PostData("getrooms", {
       campusID: campusId,
       token: token,
     });
@@ -195,7 +241,7 @@ export const getRoomsByCampus = async (campusId) => {
 export const addRoom = async (campusId, roomNumber, roomName) => {
   try {
     const token = getToken();
-    const response = await fetchData("addroom", {
+    const response = await PostData("addroom", {
       campusID: campusId,
       roomNumber: roomNumber,
       roomName: roomName,
@@ -217,7 +263,7 @@ export const addRoom = async (campusId, roomNumber, roomName) => {
 export const editRoom = async (roomId, campusId, roomNumber, roomName) => {
   try {
     const token = getToken();
-    const response = await fetchData("editroom", {
+    const response = await PostData("editroom", {
       roomID: roomId,
       campusID: campusId,
       roomNumber: roomNumber,
@@ -240,7 +286,7 @@ export const editRoom = async (roomId, campusId, roomNumber, roomName) => {
 export const deleteRoom = async (roomId) => {
   try {
     const token = getToken();
-    const response = await fetchData("deleteroom", {
+    const response = await PostData("deleteroom", {
       roomID: roomId,
       token: token,
     });
@@ -274,7 +320,7 @@ export const getItemsByRoom = async (roomId, stateList = []) => {
     }
 
   //  console.log("Sending getitems request with data:", requestData);
-    const response = await fetchData("getitems", requestData);
+    const response = await PostData("getitems", requestData);
 
    // console.log("API response from getItemsByRoom:", response.data);
 
@@ -377,7 +423,7 @@ export const addDevice = async (deviceData) => {
     };
 
    // console.log("Adding device with data:", payload);
-    const response = await fetchData("additem", payload);
+    const response = await PostData("additem", payload);
    // console.log("Add device API response:", response.data);
 
     // Check if we have a deviceID in the response (new format)
@@ -428,7 +474,7 @@ export const addDevice = async (deviceData) => {
 
 export const deleteItemById = async (deleteTargetData) => {
   try {
-    const response = await fetchData("deleteitem", deleteTargetData);
+    const response = await PostData("deleteitem", deleteTargetData);
 
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -450,7 +496,7 @@ export const updateDevice = async (deviceData) => {
     // console.log('Updating device with data:', JSON.stringify(deviceData, null, 2));
 
     // Use the new edititem endpoint
-    const response = await fetchData("edititem", {
+    const response = await PostData("edititem", {
       ...deviceData,
       token: token,
     });
@@ -507,7 +553,7 @@ export const uploadDeviceDoc = async (file, deviceId) => {
     console.log(`Uploading file for device ID ${numericDeviceId}`);
 
     // Use the files endpoint for upload
-    const response = await fetchData(
+    const response = await PostData(
       "files/devicedoc/upload",
       formData,
       config
@@ -547,7 +593,7 @@ export const uploadDeviceDoc = async (file, deviceId) => {
 export const getDeviceDocuments = async (deviceId) => {
   try {
     const token = getToken();
-    const response = await fetchData(
+    const response = await PostData(
       `files/devicedoc/list/${deviceId}`,
       {
         token: token,
@@ -569,7 +615,7 @@ export const getDeviceDocuments = async (deviceId) => {
  */
 export const deleteRFID = async (rfidData) => {
   try {
-    const response = await fetchData("deleterfid", rfidData);
+    const response = await PostData("deleterfid", rfidData);
 
   //  console.log("API response from deleteRFID:", response.data);
 
@@ -588,7 +634,7 @@ export const deleteRFID = async (rfidData) => {
  */
 export const assignRFID = async (rfidData) => {
   try {
-    const response = await fetchData("assignrfid", rfidData);
+    const response = await PostData("assignrfid", rfidData);
  //   console.log("API response from addRFID:", response.data);
     if (response.data && response.data.status === true) {
       return { success: true, data: response.data };
@@ -621,7 +667,7 @@ export const downloadDeviceDoc = async (docPath) => {
     const token = getToken();
 
     // Make the request with the token in a specific header as required by the backend
-    const response = await axiosInstance.get(
+    const response = await GetData(
       `files/devicedoc/download/${path}`,
       {
         responseType: "blob", // Important: Set responseType to 'blob' to receive binary data
@@ -659,7 +705,7 @@ export const deleteDeviceDoc = async (deviceId, docPath) => {
     const token = getToken();
 
     // Make the request with the required parameters
-    const response = await fetchData("deletedoc", {
+    const response = await PostData("deletedoc", {
       token, // Include token in the request body as required by the API
       deviceID: deviceId, // The device ID
       docPath, // The full document path
@@ -696,7 +742,7 @@ export const updateItemPart = async (partData) => {
     };
 
     // Make the API request
-    const response = await fetchData("updateitempart", payload);
+    const response = await PostData("updateitempart", payload);
 
   //  console.log("Update item part response:", response.data);
 
@@ -727,7 +773,7 @@ export const borrowItem = async (borrowData) => {
     };
 
     // Make the API call
-    const response = await fetchData("br/borrow", requestData);
+    const response = await PostData("br/borrow", requestData);
 
    // console.log("API response from borrowItem:", response.data);
 
@@ -766,7 +812,7 @@ export const getDeviceIdByRFID = async (rfid) => {
       RFID: rfid,
     };
 
-    const response = await fetchData("getitembyrfid", requestData);
+    const response = await PostData("getitembyrfid", requestData);
 
    // console.log("API response from getDeviceIdByRFID:", response.data);
 
@@ -813,7 +859,7 @@ export const reserveItem = async (itemId, borrowRecordDate, endDate) => {
    // console.log("Sending reservation request:", requestData);
 
     // Send the reservation request
-    const response = await fetchData("br/reservation", requestData);
+    const response = await PostData("br/reservation", requestData);
 
   //  console.log("Reservation response:", response.data);
 
@@ -854,7 +900,7 @@ export const getBorrowRecords = async (params) => {
   //  console.log("Fetching borrow records with params:", requestData);
 
     // Send the API request
-    const response = await fetchData(
+    const response = await PostData(
       "br/getborrowrecord",
       requestData
     );
@@ -898,7 +944,7 @@ export const checkReturn = async (checkReturnParams) => {
       RFIDList: checkReturnParams.rfidlist,
     };
 
-    const response = await fetchData("br/check", requestData);
+    const response = await PostData("br/check", requestData);
 
     // Assuming the backend returns something like [{ deviceID, deviceName, partsChecked }]
     if (response.data) {
@@ -926,7 +972,7 @@ export const returnItem = async (rfidListData) => {
       }
     }
 
-    const response = await fetchData("br/return", {
+    const response = await PostData("br/return", {
       token: token,
       returnList: idList,
     });
@@ -959,7 +1005,7 @@ export const returnItem = async (rfidListData) => {
 export const addUser = async (AddUserData) => {
   try {
     const token = getToken();
-    const response = await fetchData("/adduser", {
+    const response = await PostData("/adduser", {
       token: token,
       userList: AddUserData.userList,
     });
@@ -981,7 +1027,7 @@ export const addUser = async (AddUserData) => {
 export const bindUserCard = async (targetCNA, targetSID) => {
   try {
     const token = getToken();
-    const response = await fetchData("/addusercard", {
+    const response = await PostData("/addusercard", {
       CardID: targetSID,
       CNA: targetCNA,
       token: token,
@@ -1007,7 +1053,7 @@ export const editCard = async (editCardData) => {
 
     //console.log(editCardData)
 
-    const response = await fetchData("editusercard", {
+    const response = await PostData("editusercard", {
       CardID: editCardData.cardID,
       newCardID: editCardData.newCardID,
       state: editCardData.targetState,
@@ -1033,7 +1079,7 @@ export const deleteCard = async (deleteCardID) => {
     const token = getToken();
 
   //  console.log("delCardid:", deleteCardID);
-    const response = await fetchData("/deleteusercard", {
+    const response = await PostData("/deleteusercard", {
       CardID: deleteCardID,
       token: token,
     });
@@ -1059,7 +1105,7 @@ export const changePassword = async (passwordData) => {
   try {
     const token = getToken();
 
-    const response = await fetchData("/changepw", {
+    const response = await PostData("/changepw", {
       token: token,
       oldPassword: passwordData.oldPassword,
       newPassword: passwordData.newPassword,
@@ -1142,7 +1188,7 @@ export const generateBorrowReport = async (reportData) => {
   try {
     const token = getToken();
 
-    const response = await fetchData("/report/device-borrow-history", {
+    const response = await PostData("/report/device-borrow-history", {
       token: token,
       studentCNA: reportData.targetCNA,
     });
@@ -1168,7 +1214,7 @@ export const generateOverdueReport = async (reportData) => {
 
     const token = getToken();
 
-    const response = await fetchData("/report/overdue-devices",{
+    const response = await PostData("/report/overdue-devices",{
       token: token,
       campusID: reportData.campusID,
       roomID: reportData.roomID,
@@ -1199,7 +1245,7 @@ export const generateDeviceStatusReport = async () => {
      
     const token = getToken();
 
-    const response = await fetchData("/report/device-status-report",{
+    const response = await PostData("/report/device-status-report",{
       token: token
     })
 
