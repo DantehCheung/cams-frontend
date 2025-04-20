@@ -288,11 +288,11 @@ const Page = () => {
                   />
                 ),
               }}
-              placeholder={'Username: admin or user'}
+              placeholder={'CNA or Email'}
               rules={[
                 {
                   required: true,
-                  message: 'Please enter your username!',
+                  message: 'Please enter your CNA or Email!',
                 },
               ]}
             />
