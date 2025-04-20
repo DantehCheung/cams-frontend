@@ -207,7 +207,7 @@ const Borrow = () => {
         });
         
         if (!borrowResponse.success) {
-          throw new Error(borrowResponse.error || 'Failed to borrow item');
+          throw new Error('Failed to borrow item, this book has been borrowed by someone else');
         }
         
         // Update redux store if needed
