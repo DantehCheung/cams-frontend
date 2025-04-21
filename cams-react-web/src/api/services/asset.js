@@ -57,9 +57,59 @@ const PostData = async (url, data, config = {}) => {
   }
 };
 
-const GetData = async (url, data, config = {}) => {
+
+const GetData = async (url, config = {}) => {
   try {
-    let response = await axiosInstance.get(url, data);
+    let response = await axiosInstance.get(url, config);
+    
+    // For JSON responses, keep your existing error code handling
+    if (response.data && typeof response.data === 'object' && !response.data.type) {
+      if (response.data.errorCode === "E10" || response.data.errorCode === "E04") {
+        // Your existing token refresh logic
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error("fetchData error:", error);
+    
+    // Check if this might be a token expiration error (500 or 401)
+    if ((error.response?.status === 500 || error.response?.status === 401) && 
+        config.responseType === 'blob') {
+      
+      console.log("Possible token expiration for blob request, attempting refresh");
+      
+      try {
+        // Try refreshing the token
+        const refreshResponse = await axiosInstance.post("renewtoken", {
+          refreshToken: getRefreshToken(),
+        });
+        
+        if (refreshResponse.data && !refreshResponse.data.errorCode) {
+          // Update the token
+          setAuthToken(refreshResponse.data.token, refreshResponse.data.refreshToken);
+          
+          // Update the request config with the new token
+          if (!config.headers) config.headers = {};
+          config.headers.token = refreshResponse.data.token;
+          
+          // Retry the request with the new token
+          console.log("Retrying download with new token");
+          return await axiosInstance.get(url, config);
+        }
+      } catch (refreshError) {
+        console.error("Token refresh failed:", refreshError);
+      }
+    }
+    
+    // If we couldn't handle the error, re-throw it
+    throw error;
+  }
+};
+
+/*const GetData = async (url, data, config = {}) => {
+  try {
+    let response = await axiosInstance.get(url, config);
     console.log("API response in 15:", response.data);
     // 檢查是否有 errorCode
     if (response.data.errorCode) {
@@ -79,7 +129,7 @@ const GetData = async (url, data, config = {}) => {
           setAuthToken(refreshResponse.data.token, refreshResponse.data.refreshToken);
           data.headers.token = refreshResponse.data.token;
           // 使用新的 Token 重試原始請求
-          const retryResponse = await axiosInstance.get(url, data);
+          const retryResponse = await axiosInstance.get(url,data ,config);
           if (retryResponse.data && !retryResponse.data.errorCode) {
             return retryResponse;
           } else {
@@ -95,7 +145,7 @@ const GetData = async (url, data, config = {}) => {
         console.error(`Unhandled errorCode: ${response.data.errorCode}`);
         return response;
       }
-    }
+    } 
 
     // 如果沒有 errorCode，返回正常的響應
     return response;
@@ -103,7 +153,7 @@ const GetData = async (url, data, config = {}) => {
     console.error("fetchData error:", error);
     throw error;
   }
-};
+};*/
 
 export const getHomeData = async () => {
   try {
