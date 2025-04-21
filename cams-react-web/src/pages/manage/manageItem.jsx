@@ -522,6 +522,9 @@ const ManageItem = () => {
         
         // Show success message
         message.success('Device creation and file uploads completed successfully');
+
+        // Refresh the device list
+        handleSort();
         
         // Close the modal and reset states
         setIsModalVisible(false);
