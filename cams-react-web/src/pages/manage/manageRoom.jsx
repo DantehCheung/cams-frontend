@@ -216,7 +216,7 @@ const ManageRoom = () => {
               }
             }
           } else {
-            message.error(`Failed to add room: ${response.error?.description || 'Unknown error'}`);
+            message.error(`Failed to add room: Repeated RoomID ${response.error?.description || 'Unknown error'}`);
             return; // Don't close modal or reset form if there was an error
           }
         }

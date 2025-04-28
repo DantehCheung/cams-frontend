@@ -66,8 +66,7 @@ const Return = () => {
     } else {
       window.activeRFIDPage = 'return';
     }
-    dispatch(returnSuccess([])); // Clear the items in the Redux store
-    setPendingChecked(true); // Reset pending state
+
   };
 
   // Function to clear RFID data
@@ -111,8 +110,9 @@ const Return = () => {
   const handleReturn = async () => {
     try {
       const currentRFIDList = items.map(item => item.rfid);  // currentRFIDList = ["ABC123", "DEF456", "GHI789"]
+      console.log("Current RFID List:", currentRFIDList);
       const result = await assetService.returnItem({ rfidList: currentRFIDList });
-
+     
       let greenlight = false;
       const failedItems = [];
 
@@ -205,6 +205,8 @@ const Return = () => {
       };
     }
   }, [inBrowser]);
+
+
 
   const columns = [
     { title: "RFID Tag", dataIndex: "rfid", key: "rfid" },
