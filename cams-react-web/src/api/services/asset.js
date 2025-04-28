@@ -1189,7 +1189,7 @@ export const downloadElectronApp = async (platform, packageType, onProgress) => 
       : `/files/app/download/${platform}/${packageType}?auto=true`;
 
     // Fetch the file as a blob
-    const response = await axiosInstance.get(url, {
+    const response = await GetData(url, {
       responseType: "blob", // Important for binary file downloads
       timeout: 120000,     // Increase timeout to 2 minutes (120,000ms)
       onDownloadProgress: (progressEvent) => {
