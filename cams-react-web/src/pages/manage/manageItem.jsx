@@ -39,6 +39,7 @@ import {
 } from "@ant-design/icons";
 import { assetService } from "../../api";
 import axiosInstance from "../../api/axios";
+import dayjs from 'dayjs';
 
 // Initialize Electron IPC Renderer if not in browser environment
 // Get Electron IPC 
@@ -538,6 +539,26 @@ const ManageItem = () => {
       
       // Otherwise, this is the initial device creation step
       const values = await form.validateFields();
+
+
+      const formattedValues = {
+        ...values,
+        orderDate: values.orderDate ? 
+          (typeof values.orderDate === 'object' && values.orderDate.format ? 
+            values.orderDate.format('YYYY-MM-DD') : values.orderDate) : undefined,
+        
+        arriveDate: values.arriveDate ? 
+          (typeof values.arriveDate === 'object' && values.arriveDate.format ? 
+            values.arriveDate.format('YYYY-MM-DD') : values.arriveDate) : undefined,
+        
+        maintenanceDate: values.maintenanceDate ? 
+          (typeof values.maintenanceDate === 'object' && values.maintenanceDate.format ? 
+            values.maintenanceDate.format('YYYY-MM-DD') : values.maintenanceDate) : undefined
+      };
+
+
+
+
       setLoading(true);
       
       // Collect device parts data
@@ -1814,30 +1835,37 @@ const ManageItem = () => {
             {editingItem ? (
               /* In edit mode, use simple Input fields for dates to avoid DatePicker validation issues */
               <>
-                <Form.Item
-                  name="orderDate"
-                  label="Order Date"
-                  style={{ flex: 1 }}    
-                  initialValue={editingItem.orderDate || ''}
-                >
-                  <Input placeholder="YYYY-MM-DD" style={{ width: '100%' }} />
-                </Form.Item>
-                <Form.Item
-                  name="arriveDate"
-                  label="Arrival Date"
-                  style={{ flex: 1 }}
-                  initialValue={editingItem.arriveDate || ''}
-                >
-                  <Input placeholder="YYYY-MM-DD" style={{ width: '100%' }} />
-                </Form.Item>
-                <Form.Item
-                  name="maintenanceDate"
-                  label="Maintenance Date"
-                  style={{ flex: 1 }}
-                  initialValue={editingItem.maintenanceDate || ''}
-                >
-                  <Input placeholder="YYYY-MM-DD" style={{ width: '100%' }} />
-                </Form.Item>
+
+<Form.Item
+name="orderDate"
+label="Order Date"
+rules={[{ required: true, message: 'Please select a date!' }]}
+style={{ flex: 1 }}
+getValueProps={(value) => ({ value: value ? dayjs(value) : undefined })}
+getValueFromEvent={(date) => date ? date.format('YYYY-MM-DD') : undefined}
+>
+<DatePicker style={{ width: '100%' }} />
+</Form.Item>
+
+<Form.Item
+name="arriveDate"
+label="Arrival Date"
+style={{ flex: 1 }}
+getValueProps={(value) => ({ value: value ? dayjs(value) : undefined })}
+getValueFromEvent={(date) => date ? date.format('YYYY-MM-DD') : undefined}
+>
+<DatePicker style={{ width: '100%' }} />
+</Form.Item>
+
+<Form.Item
+name="maintenanceDate"
+label="Maintenance Date" 
+style={{ flex: 1 }}
+getValueProps={(value) => ({ value: value ? dayjs(value) : undefined })}
+getValueFromEvent={(date) => date ? date.format('YYYY-MM-DD') : undefined}
+>
+<DatePicker style={{ width: '100%' }} />
+</Form.Item>
               </>
             ) : (
               /* In add mode, use DatePicker as normal */
