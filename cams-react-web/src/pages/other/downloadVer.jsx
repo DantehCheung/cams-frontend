@@ -9,6 +9,7 @@ import {
   Typography,
   Select,
   Card,
+  Progress
 } from "antd";
 import { assetService } from "../../api";
 import {
@@ -24,21 +25,35 @@ const { Title } = Typography;
 
 const downloadVer = () => {
   const [selectedPlatform, setSelectedPlatform] = useState("winx64");
-  const [selectedPackage, setSelectedPackage] = useState("zip");
+  const [selectedPackage, setSelectedPackage] = useState("unpacked");
+    const [downloadProgress, setDownloadProgress] = useState(0); //
+    const [isDownloading, setIsDownloading] = useState(false); //
+    
 
   // Update handleDownload function
   const handleDownload = async () => {
     try {
+      setIsDownloading(true);
+      setDownloadProgress(0);
+      
       const result = await assetService.downloadElectronApp(
-        selectedPlatform,
-        selectedPackage
+        selectedPlatform, 
+        selectedPackage, 
+        (progress) => setDownloadProgress(progress)
       );
+      
       if (!result.success) {
-        message.error("Failed to download application");
+        message.error('Failed to download application');
       }
     } catch (error) {
-      console.error("Download error:", error);
-      message.error("An error occurred while downloading");
+      console.error('Download error:', error);
+      message.error('An error occurred while downloading');
+    } finally {
+      // Keep progress visible for a moment before resetting
+      setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadProgress(0);
+      }, 2000);
     }
   };
 
@@ -46,7 +61,7 @@ const downloadVer = () => {
     <div
       style={{
         position: "fixed",
-        bottom: 600,
+        bottom: 500,
         left: 250,
         padding: "20px",
         textAlign: "center",
@@ -117,14 +132,34 @@ const downloadVer = () => {
           />
         </Space>
 
-        <Button
-          type="primary"
-          icon={<DownloadOutlined />}
-          style={{ width: "100%", marginTop: "10px" }}
-          onClick={handleDownload}
-        >
-          Download Now
-        </Button>
+    {/* Progress bar - show when downloading */}
+    {isDownloading && (
+                <div style={{ marginTop: '10px' }}>
+                  <Progress 
+                    percent={downloadProgress} 
+                    status="active"
+                    strokeColor={{
+                      '0%': '#108ee9',
+                      '100%': '#87d068',
+                    }}
+                  />
+                  <Typography.Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+                    {downloadProgress < 100 ? 'Downloading...' : 'Preparing download...'}
+                  </Typography.Text>
+                </div>
+              )}
+
+              {/* Download button */}
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                style={{ width: '100%', marginTop: '10px' }}
+                onClick={handleDownload}
+                loading={isDownloading}
+                disabled={isDownloading}
+              >
+                {isDownloading ? 'Downloading...' : 'Download Now'}
+              </Button>
 
         <Typography.Text style={{ color: "#606060", fontSize: "12px" }}>
           Desktop version provides enhanced features including direct card

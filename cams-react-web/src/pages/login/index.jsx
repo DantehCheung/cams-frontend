@@ -16,7 +16,7 @@ import {
   ProFormCheckbox,
   ProFormText,
 } from '@ant-design/pro-components';
-import { Button, Divider, Space, Tabs, message, theme, Typography, Select } from 'antd';
+import { Button, Divider, Space, Tabs, message, theme, Typography, Select,Progress  } from 'antd';
 import { useState, useEffect } from 'react';
 import Video from "../../assets/video/login.mp4"
 import { useNavigate } from 'react-router-dom';
