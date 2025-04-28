@@ -1014,6 +1014,7 @@ export const returnItem = async (rfidListData) => {
     const token = getToken();
 
     const idList = [];
+    console.log("RFID List Data:", rfidListData.rfidList);
     for (const rfidtag of rfidListData.rfidList) {
       const devicedata = await getDeviceIdByRFID(rfidtag);
       var deviceid = devicedata.data.deviceID;
@@ -1022,12 +1023,16 @@ export const returnItem = async (rfidListData) => {
       }
     }
 
+    console.log("Device ID List:", idList);
+
     const response = await PostData("br/return", {
       token: token,
       returnList: idList,
     });
 
-  //  console.log("Return item response:", response.data);
+
+
+    console.log("Return item response:", response.data);
 
     // Now we expect the backend to return an object with returnStatus
     // e.g. { "returnStatus": [ { "itemID": 1, "state": true }, { "itemID": 2, "state": false } ] }
