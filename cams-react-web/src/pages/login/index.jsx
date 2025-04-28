@@ -43,6 +43,8 @@ const Page = () => {
 
   const [selectedPlatform, setSelectedPlatform] = useState('winx64');
   const [selectedPackage, setSelectedPackage] = useState('unpacked');
+  const [downloadProgress, setDownloadProgress] = useState(0); //
+  const [isDownloading, setIsDownloading] = useState(false); //
 
   const { login, loginByCard } = useAuth();
 
@@ -159,13 +161,27 @@ const Page = () => {
   // Update handleDownload function
   const handleDownload = async () => {
     try {
-      const result = await assetService.downloadElectronApp(selectedPlatform, selectedPackage);
+      setIsDownloading(true);
+      setDownloadProgress(0);
+      
+      const result = await assetService.downloadElectronApp(
+        selectedPlatform, 
+        selectedPackage, 
+        (progress) => setDownloadProgress(progress)
+      );
+      
       if (!result.success) {
         message.error('Failed to download application');
       }
     } catch (error) {
       console.error('Download error:', error);
       message.error('An error occurred while downloading');
+    } finally {
+      // Keep progress visible for a moment before resetting
+      setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadProgress(0);
+      }, 2000);
     }
   };
 
@@ -454,14 +470,34 @@ const Page = () => {
             />
           </Space>
 
-          <Button
-            type="primary"
-            icon={<DownloadOutlined />}
-            style={{ width: '100%', marginTop: '10px' }}
-            onClick={handleDownload}
-          >
-            Download Now
-          </Button>
+        {/* Progress bar - show when downloading */}
+        {isDownloading && (
+                <div style={{ marginTop: '10px' }}>
+                  <Progress 
+                    percent={downloadProgress} 
+                    status="active"
+                    strokeColor={{
+                      '0%': '#108ee9',
+                      '100%': '#87d068',
+                    }}
+                  />
+                  <Typography.Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+                    {downloadProgress < 100 ? 'Downloading...' : 'Preparing download...'}
+                  </Typography.Text>
+                </div>
+              )}
+
+              {/* Download button */}
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                style={{ width: '100%', marginTop: '10px' }}
+                onClick={handleDownload}
+                loading={isDownloading}
+                disabled={isDownloading}
+              >
+                {isDownloading ? 'Downloading...' : 'Download Now'}
+              </Button>
        
           <Typography.Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '12px' }}>
             Desktop version provides enhanced features including direct card reader integration.

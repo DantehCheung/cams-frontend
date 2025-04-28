@@ -1177,7 +1177,7 @@ export const changePassword = async (passwordData) => {
 // download app
 
 // Add this function to asset.js
-export const downloadElectronApp = async (platform, packageType) => {
+export const downloadElectronApp = async (platform, packageType, onProgress) => {
   try {
     if (!platform || !packageType) {
       throw new Error("Platform and package type are required for download");
@@ -1191,6 +1191,17 @@ export const downloadElectronApp = async (platform, packageType) => {
     // Fetch the file as a blob
     const response = await axiosInstance.get(url, {
       responseType: "blob", // Important for binary file downloads
+      timeout: 120000,     // Increase timeout to 2 minutes (120,000ms)
+      onDownloadProgress: (progressEvent) => {
+        // Calculate progress percentage
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        console.log(`Download progress: ${percentCompleted}%`);
+        
+        // Call the progress callback if provided
+        if (onProgress && typeof onProgress === 'function') {
+          onProgress(percentCompleted);
+        }
+      }
     });
 
     // Create a blob URL for the downloaded file
@@ -1208,28 +1219,21 @@ export const downloadElectronApp = async (platform, packageType) => {
     // Trigger the download
     document.body.appendChild(link);
     link.click();
-    link.remove();
+    document.body.removeChild(link); // Use removeChild instead of remove for better compatibility
 
     // Clean up the blob URL
     window.URL.revokeObjectURL(blobUrl);
 
-    return { success: true };
-
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-    // Clean up the blob URL
-    window.URL.revokeObjectURL(blobUrl);
-
+    // Reset progress
+    if (onProgress) onProgress(0);
     return { success: true };
   } catch (error) {
     console.error("Download error:", error);
+    // Reset progress on error
+    if (onProgress) onProgress(0);
     return { success: false, error: error.message };
   }
 };
-
 // Generate Report
 
 // Borrow Report
