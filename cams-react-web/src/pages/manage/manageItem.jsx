@@ -145,9 +145,9 @@ const ManageItem = () => {
       remark: record.remark,
       campus: record.campusId,
       roomId: roomIdValue, // Use our safe roomId value
-      orderDate: record.orderDate || '',
-      arriveDate: record.arriveDate || '',
-      maintenanceDate: record.maintenanceDate || ''
+      orderDate: record.orderDate ? dayjs(record.orderDate) : undefined,
+      arriveDate: record.arriveDate ? dayjs(record.arriveDate) : undefined,
+      maintenanceDate: record.maintenanceDate ? dayjs(record.maintenanceDate) : undefined
     };
     
     form.setFieldsValue(formValues);
